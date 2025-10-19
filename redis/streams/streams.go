@@ -8,11 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TixiaOTA/tixia-backend-master/internal/helpers"
-	"github.com/TixiaOTA/tixia-backend-master/pkg/logger"
-	otelpkg "github.com/TixiaOTA/tixia-backend-master/pkg/otel"
-	"github.com/TixiaOTA/tixia-backend-master/pkg/redis/client"
-	"github.com/TixiaOTA/tixia-backend-master/pkg/redis/redisutil"
+	"github.com/TixiaOTA/tixia-pkg/logger"
+	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
+	"github.com/TixiaOTA/tixia-pkg/redis/client"
+	"github.com/TixiaOTA/tixia-pkg/redis/redisutil"
 	"go.opentelemetry.io/otel/codes"
 
 	"github.com/redis/go-redis/v9"
@@ -23,7 +22,7 @@ import (
 type Event struct {
 	ID        string                 `json:"id"`                 // unique identifier for the event
 	Type      string                 `json:"type"`               // type of the event (e.g. "flight.search.requested")
-	Source    string                 `json:"source"`             // source of the event (e.g. "tixia-backend-master")
+	Source    string                 `json:"source"`             // source of the event (e.g. "tixia-pkg")
 	Timestamp time.Time              `json:"timestamp"`          // timestamp of the event
 	Data      map[string]interface{} `json:"data"`               // data of the event (e.g. "flight search request")
 	Metadata  map[string]interface{} `json:"metadata,omitempty"` // metadata of the event (e.g. "request_id", "search_id")
@@ -38,7 +37,7 @@ type StreamConfig struct {
 	StreamPrefix  string `envconfig:"STREAM_PREFIX" default:"tixia"`
 	ConsumerGroup string `envconfig:"CONSUMER_GROUP" default:"tixia-group"`
 	ConsumerName  string `envconfig:"CONSUMER_NAME" default:"tixia-consumer"`
-	ServiceName   string `envconfig:"SERVICE_NAME" default:"tixia-backend-master"`
+	ServiceName   string `envconfig:"SERVICE_NAME" default:"tixia-pkg"`
 
 	// Read settings
 	ReadBlock time.Duration `envconfig:"REDIS_READ_BLOCK" default:"30s"`
@@ -221,7 +220,7 @@ func (sm *StreamManager) GetCorrelation(requestID string) (*EventCorrelation, bo
 
 // PublishEvent publishes an event to a Redis stream
 func (sm *StreamManager) PublishEvent(ctx context.Context, event Event) error {
-	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "handler", helpers.GetFunctionName(), "PublishEvent")
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "handler", "PublishEvent", "PublishEvent")
 	defer span.End()
 
 	streamName := fmt.Sprintf("%s:%s", sm.config.StreamPrefix, event.Type)
@@ -626,7 +625,7 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 }
 
 func (sm *StreamManager) WaitForStreamResponseAndUnmarshal(ctx context.Context, timeout time.Duration, requestId, searchId string, target any) error {
-	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "stream manager", helpers.GetFunctionName(), "WaitForStreamResponseAndUnmarshal pkg")
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "stream manager", "WaitForStreamResponseAndUnmarshal", "WaitForStreamResponseAndUnmarshal")
 	defer span.End()
 
 	// Wait for the response from the provider

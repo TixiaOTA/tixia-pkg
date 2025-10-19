@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TixiaOTA/tixia-backend-master/pkg/logger"
+	"github.com/TixiaOTA/tixia-pkg/logger"
 
 	"go.uber.org/zap"
 )

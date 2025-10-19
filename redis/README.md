@@ -65,6 +65,7 @@ The Redis configuration supports separate Redis servers for cache and streams op
 ### Environment Variables
 
 #### Cache Redis Variables
+
 - `REDIS_CACHE_URL` - Cache Redis server URL
 - `REDIS_CACHE_PASSWORD` - Cache Redis password
 - `REDIS_CACHE_DB` - Cache Redis database number
@@ -73,6 +74,7 @@ The Redis configuration supports separate Redis servers for cache and streams op
 - `REDIS_CACHE_MAX_RETRIES` - Cache maximum retry attempts
 
 #### Streams Redis Variables
+
 - `REDIS_STREAMS_URL` - Streams Redis server URL
 - `REDIS_STREAMS_PASSWORD` - Streams Redis password
 - `REDIS_STREAMS_DB` - Streams Redis database number
@@ -87,8 +89,8 @@ The Redis configuration supports separate Redis servers for cache and streams op
 The cache package uses the base client for Redis operations:
 
 ```go
-import "github.com/TixiaOTA/tixia-backend-master/pkg/redis/cache"
-import "github.com/TixiaOTA/tixia-backend-master/pkg/redis/client"
+import "github.com/TixiaOTA/tixia-pkg/redis/cache"
+import "github.com/TixiaOTA/tixia-pkg/redis/client"
 
 // Create cache manager with embedded base config
 cacheConfig := cache.CacheConfig{
@@ -123,8 +125,8 @@ The streams package provides a robust Redis Streams implementation with the foll
 #### Example Usage
 
 ```go
-import "github.com/TixiaOTA/tixia-backend-master/pkg/redis/streams"
-import "github.com/TixiaOTA/tixia-backend-master/pkg/redis/client"
+import "github.com/TixiaOTA/tixia-pkg/redis/streams"
+import "github.com/TixiaOTA/tixia-pkg/redis/client"
 
 // Create stream manager with base config
 config := streams.StreamConfig{

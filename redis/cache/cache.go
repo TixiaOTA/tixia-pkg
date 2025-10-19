@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TixiaOTA/tixia-backend-master/pkg/logger"
-	"github.com/TixiaOTA/tixia-backend-master/pkg/redis/client"
+	"github.com/TixiaOTA/tixia-pkg/logger"
+	"github.com/TixiaOTA/tixia-pkg/redis/client"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"

@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/TixiaOTA/tixia-backend-master/pkg/logger/loki"
+	"github.com/TixiaOTA/tixia-pkg/logger/loki"
 )
 
 // Logger is a wrapper around zap.Logger

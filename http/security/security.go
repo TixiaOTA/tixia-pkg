@@ -1,7 +1,7 @@
 package security
 
 import (
-	"github.com/TixiaOTA/tixia-backend-master/pkg/http/security/middleware"
+	"github.com/TixiaOTA/tixia-pkg/http/security/middleware"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"

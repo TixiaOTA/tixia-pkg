@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/TixiaOTA/tixia-backend-master/pkg/redis/client"
+	"github.com/TixiaOTA/tixia-pkg/redis/client"
 )
 
 type CacheConfig struct {

@@ -16,7 +16,7 @@ A simple and flexible HTTP security middleware package for Go Fiber applications
 ### Basic Rate Limiting Only
 
 ```go
-import "github.com/TixiaOTA/tixia-backend-master/pkg/http/security"
+import "github.com/TixiaOTA/tixia-pkg/http/security"
 
 // Enable only rate limiting
 security := security.NewSecurityBuilder().
@@ -73,11 +73,11 @@ Apply different security configurations to different route groups:
 
 ```go
 func setupSecurityRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Public routes - no security
     public := app.Group("/public")
     public.Get("/health", healthHandler)
-    
+
     // API routes - only rate limiting
     api := app.Group("/api")
     apiSecurity := security.NewSecurityBuilder().
@@ -93,13 +93,13 @@ func setupSecurityRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.
         WithRedis(redisClient).
         WithLogger(logger).
         Build()
-    
+
     for _, middleware := range apiSecurity.Middleware() {
         api.Use(middleware)
     }
     api.Get("/users", getUsersHandler)
     api.Post("/bookings", createBookingHandler)
-    
+
     // Admin routes - strict security
     admin := app.Group("/admin")
     adminSecurity := security.NewSecurityBuilder().
@@ -117,7 +117,7 @@ func setupSecurityRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.
         WithRedis(redisClient).
         WithLogger(logger).
         Build()
-    
+
     for _, middleware := range adminSecurity.Middleware() {
         admin.Use(middleware)
     }
@@ -131,7 +131,7 @@ Apply specific middleware to individual routes:
 
 ```go
 func setupIndividualSecurity(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Create security manager
     security := security.NewSecurityBuilder().
         WithRateLimit(security.RateLimitConfig{
@@ -145,26 +145,26 @@ func setupIndividualSecurity(app *fiber.App, redisClient *redis.Client, logger *
         WithRedis(redisClient).
         WithLogger(logger).
         Build()
-    
+
     // Route with only rate limiting
-    app.Get("/api/public", 
+    app.Get("/api/public",
         security.RateLimitMiddleware(),
         publicAPIHandler,
     )
-    
+
     // Route with only security headers
-    app.Get("/webapp/profile", 
+    app.Get("/webapp/profile",
         security.HeadersMiddleware(),
         profileHandler,
     )
-    
+
     // Route with both rate limiting and headers
-    app.Post("/api/sensitive", 
+    app.Post("/api/sensitive",
         security.RateLimitMiddleware(),
         security.HeadersMiddleware(),
         sensitiveAPIHandler,
     )
-    
+
     // Route with no security
     app.Get("/health", healthHandler)
 }
@@ -176,7 +176,7 @@ Different rate limits for different endpoints:
 
 ```go
 func setupEndpointSpecificRateLimits(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Strict rate limiting for login endpoint
     loginRateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -190,7 +190,7 @@ func setupEndpointSpecificRateLimits(app *fiber.App, redisClient *redis.Client, 
         logger,
     )
     app.Post("/auth/login", loginRateLimit, loginHandler)
-    
+
     // Lenient rate limiting for search endpoint
     searchRateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -203,7 +203,7 @@ func setupEndpointSpecificRateLimits(app *fiber.App, redisClient *redis.Client, 
         logger,
     )
     app.Get("/api/search", searchRateLimit, searchHandler)
-    
+
     // Very strict for payment processing
     paymentRateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -226,25 +226,25 @@ Integration with your existing Tixia route structure:
 
 ```go
 func SetupTixiaRoutesWithSecurity(app *fiber.App, h *handlers.Handlers, redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Health routes - no security
     app.Get("/", handlers.GetServiceInfo)
     app.Get("/health", handlers.HealthCheck)
     app.Get("/health/db", handlers.DBHealthCheck)
-    
+
     // API v1 routes with standard rate limiting
     apiV1 := app.Group("/api/v1")
     apiSecurity := security.ForAPI(redisClient, logger)
     for _, middleware := range apiSecurity.Middleware() {
         apiV1.Use(middleware)
     }
-    
+
     // Setup your existing routes with security
     setupAirportRoutes(apiV1, h)
     setupCityRoutes(apiV1, h)
     setupCountryRoutes(apiV1, h)
     setupFlightRoutes(apiV1, h)
-    
+
     // Booking routes with special rate limiting
     bookingRateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -260,7 +260,7 @@ func SetupTixiaRoutesWithSecurity(app *fiber.App, h *handlers.Handlers, redisCli
     apiV1.Post("/bookings", bookingRateLimit, h.CreateBooking)
     apiV1.Get("/bookings", h.GetBookings)
     apiV1.Get("/bookings/:id", h.GetBookingByID)
-    
+
     // Payment routes with very strict rate limiting
     paymentRateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -275,7 +275,7 @@ func SetupTixiaRoutesWithSecurity(app *fiber.App, h *handlers.Handlers, redisCli
     )
     apiV1.Post("/payments", paymentRateLimit, h.ProcessPayment)
     apiV1.Get("/payments/:id", h.GetPaymentStatus)
-    
+
     // Public documentation routes with minimal security
     publicSecurity := security.ForPublic()
     docsGroup := app.Group("/docs")
@@ -291,6 +291,7 @@ func SetupTixiaRoutesWithSecurity(app *fiber.App, h *handlers.Handlers, redisCli
 1. **Use Route Groups** for broad categorizations (public, api, admin)
 2. **Use Individual Middleware** for specific routes that need different security
 3. **Use Endpoint-Specific Rate Limiting** for sensitive operations like:
+
    - Login/Authentication: 5-10 attempts per minute
    - Booking Creation: 10-20 per minute per user
    - Payment Processing: 3-5 per minute per user
@@ -354,11 +355,11 @@ Add to your server setup in `internal/api/server.go`:
 ```go
 func NewServer(config ServerConfig, logger *logger.Logger, ...) *Server {
     app := fiber.New(fiber.Config{...})
-    
+
     // Existing middleware
     app.Use(recover.New(...))
     app.Use(requestid.New(...))
-    
+
     // Add global security middleware
     if config.Environment == "production" {
         securityManager := security.ForAPI(redisClient, logger.Logger)
@@ -366,11 +367,11 @@ func NewServer(config ServerConfig, logger *logger.Logger, ...) *Server {
             app.Use(middleware)
         }
     }
-    
+
     // Rest of your middleware
     app.Use(cors.New(...))
     app.Use(middleware.LoggerMiddleware(logger))
-    
+
     return &Server{...}
 }
 ```
@@ -380,8 +381,8 @@ func NewServer(config ServerConfig, logger *logger.Logger, ...) *Server {
 Modify your route setup in `internal/api/routes/routes.go`:
 
 ```go
-func SetupRoutes(app *fiber.App, h *handlers.Handlers, dbManager *db.ConnectionManager, 
-                streamManager *streams.StreamManager, jwtSecretUser, jwtSecretBackoffice string, 
+func SetupRoutes(app *fiber.App, h *handlers.Handlers, dbManager *db.ConnectionManager,
+                streamManager *streams.StreamManager, jwtSecretUser, jwtSecretBackoffice string,
                 logger *logger.Logger, redisClient *redis.Client) {
 
     // Health and info routes - no security
@@ -404,8 +405,8 @@ func SetupRoutes(app *fiber.App, h *handlers.Handlers, dbManager *db.ConnectionM
 
     // Booking routes with stricter rate limiting
     setupBookingRoutesWithSecurity(apiV1, h, redisClient, logger.Logger)
-    
-    // Payment routes with very strict rate limiting  
+
+    // Payment routes with very strict rate limiting
     setupPaymentRoutesWithSecurity(apiV1, h, redisClient, logger.Logger)
 
     // Documentation routes with minimal security
@@ -417,9 +418,9 @@ func SetupRoutes(app *fiber.App, h *handlers.Handlers, dbManager *db.ConnectionM
     docsGroup.Get("/swagger/*", swagger.HandlerDefault)
 }
 
-func setupBookingRoutesWithSecurity(router fiber.Router, h *handlers.Handlers, 
+func setupBookingRoutesWithSecurity(router fiber.Router, h *handlers.Handlers,
                                    redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Special rate limit for booking creation
     bookingCreateLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -432,7 +433,7 @@ func setupBookingRoutesWithSecurity(router fiber.Router, h *handlers.Handlers,
         redisClient,
         logger,
     )
-    
+
     router.Post("/bookings", bookingCreateLimit, h.CreateBooking)
     router.Get("/bookings", h.GetBookings)
     router.Get("/bookings/:id", h.GetBookingByID)
@@ -440,9 +441,9 @@ func setupBookingRoutesWithSecurity(router fiber.Router, h *handlers.Handlers,
     router.Delete("/bookings/:id", h.DeleteBooking)
 }
 
-func setupPaymentRoutesWithSecurity(router fiber.Router, h *handlers.Handlers, 
+func setupPaymentRoutesWithSecurity(router fiber.Router, h *handlers.Handlers,
                                    redisClient *redis.Client, logger *zap.Logger) {
-    
+
     // Very strict rate limit for payments
     paymentLimit := security.RateLimitOnly(
         security.RateLimitConfig{
@@ -455,7 +456,7 @@ func setupPaymentRoutesWithSecurity(router fiber.Router, h *handlers.Handlers,
         redisClient,
         logger,
     )
-    
+
     router.Post("/payments", paymentLimit, h.ProcessPayment)
     router.Get("/payments/:id", h.GetPaymentStatus)
 }
@@ -479,6 +480,7 @@ func NewSecurityFromEnv(env string, redis *redis.Client, logger *zap.Logger) *se
 ## Error Handling
 
 The package gracefully handles errors:
+
 - Redis connection issues: Logs warning and allows requests
 - Invalid configuration: Uses sensible defaults
 - Rate limit errors: Logs error and allows requests
@@ -486,6 +488,7 @@ The package gracefully handles errors:
 ## Rate Limiting Headers
 
 When rate limiting is enabled, the following headers are set:
+
 - `X-RateLimit-Limit`: Maximum requests allowed
 - `X-RateLimit-Remaining`: Remaining requests in current window
 - `X-RateLimit-Reset`: Unix timestamp when limit resets
