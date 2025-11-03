@@ -108,10 +108,12 @@ const (
 
 // Hotel events
 const (
-	TopicHotelSearchRequested      string = "hotel.search.requested"
-	TopicHotelSearchResults        string = "hotel.search.results"
-	TopicHotelRecheckRateRequested string = "hotel.recheckrate.requested"
-	TopicHotelRecheckRateResults   string = "hotel.recheckrate.results"
-	TopicHotelBookRequested        string = "hotel.book.requested"
-	TopicHotelBookResults          string = "hotel.book.results"
+	TopicHotelSearchRequested             string = "hotel.search.requested"
+	TopicHotelSearchResults               string = "hotel.search.results"
+	TopicHotelRecheckRateRequested        string = "hotel.recheckrate.requested"
+	TopicHotelRecheckRateResults          string = "hotel.recheckrate.results"
+	TopicHotelBookRequested               string = "hotel.book.requested"
+	TopicHotelBookResults                 string = "hotel.book.results"
+	TopicHotelReservationDetailsRequested string = "hotel.reservationdetails.requested"
+	TopicHotelReservationDetailsResults   string = "hotel.reservationdetails.results"
 )
