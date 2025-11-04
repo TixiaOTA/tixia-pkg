@@ -17,9 +17,10 @@ type RetryConfig struct {
 }
 
 type HTTPConfig struct {
-	BaseURL string
-	Timeout *time.Duration
-	Retry   *RetryConfig // Optional retry configuration
+	BaseURL  string
+	Timeout  *time.Duration // Timeout for individual request attempts
+	Deadline *time.Duration // Deadline for the entire operation (including retries)
+	Retry    *RetryConfig   // Optional retry configuration
 }
 
 type HTTPClient struct {
@@ -47,14 +48,39 @@ func (c *HTTPClient) SetBaseURL(baseURL string) {
 	c.config.BaseURL = baseURL
 }
 
-// SetTimeout sets the timeout for the HTTP client
+// SetTimeout sets the timeout for individual request attempts
 func (c *HTTPClient) SetTimeout(timeout time.Duration) {
 	c.config.Timeout = &timeout
+}
+
+// SetDeadline sets the deadline for the entire operation (including retries)
+func (c *HTTPClient) SetDeadline(deadline time.Duration) {
+	c.config.Deadline = &deadline
 }
 
 // SetRetry sets the retry configuration for the HTTP client
 func (c *HTTPClient) SetRetry(retry RetryConfig) {
 	c.config.Retry = &retry
+}
+
+// SetMaxRetries sets the maximum number of retries for the HTTP client
+func (c *HTTPClient) SetMaxRetries(maxRetries int) {
+	c.config.Retry.MaxRetries = maxRetries
+}
+
+// SetInitialBackoff sets the initial backoff for the HTTP client
+func (c *HTTPClient) SetInitialBackoff(initialBackoff time.Duration) {
+	c.config.Retry.InitialBackoff = initialBackoff
+}
+
+// SetMaxBackoff sets the maximum backoff for the HTTP client
+func (c *HTTPClient) SetMaxBackoff(maxBackoff time.Duration) {
+	c.config.Retry.MaxBackoff = maxBackoff
+}
+
+// SetBackoffMultiplier sets the backoff multiplier for the HTTP client
+func (c *HTTPClient) SetBackoffMultiplier(backoffMultiplier float64) {
+	c.config.Retry.BackoffMultiplier = backoffMultiplier
 }
 
 // Get makes a GET request to the given path. Base URL is prepended to the path.
@@ -68,12 +94,16 @@ func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Respons
 		timeout = *c.config.Timeout
 	}
 
-	// Create context with timeout
-	clientCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	// Create deadline context if configured
+	deadlineCtx := ctx
+	if c.config.Deadline != nil {
+		var cancel context.CancelFunc
+		deadlineCtx, cancel = context.WithTimeout(ctx, *c.config.Deadline)
+		defer cancel()
+	}
 
-	// Create request
-	req, err := http.NewRequestWithContext(clientCtx, http.MethodGet, c.config.BaseURL+request.Path, nil)
+	// Create request with a temporary context (will be replaced per attempt)
+	req, err := http.NewRequestWithContext(deadlineCtx, http.MethodGet, c.config.BaseURL+request.Path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +116,7 @@ func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Respons
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(clientCtx, req)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -106,9 +136,13 @@ func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*ht
 		timeout = *c.config.Timeout
 	}
 
-	// Create context with timeout
-	clientCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	// Create deadline context if configured
+	deadlineCtx := ctx
+	if c.config.Deadline != nil {
+		var cancel context.CancelFunc
+		deadlineCtx, cancel = context.WithTimeout(ctx, *c.config.Deadline)
+		defer cancel()
+	}
 
 	// Create request
 	jsonBody, err := json.Marshal(request.Body)
@@ -117,7 +151,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*ht
 	}
 
 	bodyReader := bytes.NewReader(jsonBody)
-	req, err := http.NewRequestWithContext(clientCtx, http.MethodPost, c.config.BaseURL+request.Path, bodyReader)
+	req, err := http.NewRequestWithContext(deadlineCtx, http.MethodPost, c.config.BaseURL+request.Path, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +172,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*ht
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(clientCtx, req)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -158,14 +192,18 @@ func (c *HTTPClient) PostForm(ctx context.Context, request PostFormRequest) (*ht
 		timeout = *c.config.Timeout
 	}
 
-	// Create context with timeout
-	clientCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	// Create deadline context if configured
+	deadlineCtx := ctx
+	if c.config.Deadline != nil {
+		var cancel context.CancelFunc
+		deadlineCtx, cancel = context.WithTimeout(ctx, *c.config.Deadline)
+		defer cancel()
+	}
 
 	// Create request
 	formBodyBytes := []byte(request.Body.Encode())
 	bodyReader := bytes.NewReader(formBodyBytes)
-	req, err := http.NewRequestWithContext(clientCtx, http.MethodPost, c.config.BaseURL+request.Path, bodyReader)
+	req, err := http.NewRequestWithContext(deadlineCtx, http.MethodPost, c.config.BaseURL+request.Path, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +224,7 @@ func (c *HTTPClient) PostForm(ctx context.Context, request PostFormRequest) (*ht
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(clientCtx, req)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
 	if err != nil {
 		return nil, err
 	}
