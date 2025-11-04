@@ -173,6 +173,8 @@ func (sm *StreamManager) RegisterHandler(eventType string, handler EventHandler)
 }
 
 // RegisterCorrelation registers a correlation between a request and its expected response
+//
+// Deprecated: Use RegisterHandler instead
 func (sm *StreamManager) RegisterCorrelation(requestID string, searchID string, timeout time.Duration) chan Event {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -196,6 +198,8 @@ func (sm *StreamManager) RegisterCorrelation(requestID string, searchID string, 
 }
 
 // UnregisterCorrelation removes a correlation and closes its channel
+//
+// Deprecated: RegisterCorrelation is deprecated, so this function is also deprecated
 func (sm *StreamManager) UnregisterCorrelation(requestID string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
