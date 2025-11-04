@@ -547,6 +547,7 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 	// Check if this event has a correlation (request-response pattern)
 	if event.Metadata != nil {
 		if requestID, ok := event.Metadata["request_id"].(string); ok {
+			// TODO: This is deprecated, so we should remove this
 			if correlation, exists := sm.GetCorrelation(requestID); exists {
 				// Check if the correlation is still valid (not timed out)
 				if time.Now().UTC().Before(correlation.Timeout) {
@@ -628,6 +629,7 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 	return nil
 }
 
+// Deprecated: Because RegisterCorrelation is deprecated, so this function is also deprecated
 func (sm *StreamManager) WaitForStreamResponseAndUnmarshal(ctx context.Context, timeout time.Duration, requestId, searchId string, target any) error {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "stream manager", "WaitForStreamResponseAndUnmarshal", "WaitForStreamResponseAndUnmarshal")
 	defer span.End()
