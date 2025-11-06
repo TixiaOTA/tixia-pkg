@@ -1,8 +1,11 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -25,8 +28,10 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 			log.Printf("[HTTP Retry] Deadline reached before attempt %d/%d for %s %s",
 				attempt+1, c.config.Retry.MaxRetries+1, req.Method, req.URL.String())
 			if lastErr != nil {
+				log.Printf("[HTTP Retry] Last error: %v", lastErr)
 				return lastResp, lastErr
 			}
+			log.Printf("[HTTP Retry] Deadline context error: %v", deadlineCtx.Err())
 			return nil, deadlineCtx.Err()
 		default:
 		}
@@ -45,6 +50,21 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 
 		// Execute the request
 		resp, err := http.DefaultClient.Do(req)
+
+		// If successful, buffer the body before canceling timeout context
+		if err == nil && resp != nil && resp.Body != nil {
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if readErr != nil {
+				timeoutCancel()
+				return nil, fmt.Errorf("[HTTP Retry] Failed to read response body: %w", readErr)
+			}
+
+			// Replace body with buffered version
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
 		timeoutCancel()
 
 		// Check if we should retry
@@ -54,6 +74,8 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 					attempt+1, c.config.Retry.MaxRetries+1, req.Method, req.URL.String())
 			}
 			if err != nil {
+				log.Printf("[HTTP Retry] Request failed on attempt %d/%d for %s %s: %v",
+					attempt+1, c.config.Retry.MaxRetries+1, req.Method, req.URL.String(), err)
 				return nil, err
 			}
 			return resp, nil
@@ -72,6 +94,8 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 		if resp != nil && attempt < c.config.Retry.MaxRetries {
 			// Close the response body to free resources before retry
 			resp.Body.Close()
+			log.Printf("[HTTP Retry] Closed response body for attempt %d/%d for %s %s",
+				attempt+1, c.config.Retry.MaxRetries+1, req.Method, req.URL.String())
 		}
 
 		if resp != nil {
@@ -96,6 +120,8 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 			if lastErr != nil {
 				return lastResp, lastErr
 			}
+			log.Printf("[HTTP Retry] Deadline reached during backoff for %s %s: %v",
+				req.Method, req.URL.String(), deadlineCtx.Err())
 			return nil, deadlineCtx.Err()
 		case <-time.After(backoff):
 		}
@@ -111,6 +137,8 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 			if req.GetBody != nil {
 				body, err := req.GetBody()
 				if err != nil {
+					log.Printf("[HTTP Retry] Failed to recreate request body for attempt %d/%d for %s %s: %v",
+						attempt+1, c.config.Retry.MaxRetries+1, req.Method, req.URL.String(), err)
 					return nil, err
 				}
 				req.Body = body
