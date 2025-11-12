@@ -107,7 +107,7 @@ func (m *Manager[T]) UnregisterClient(topic, clientID string) {
 }
 
 // Broadcast sends an event to all clients subscribed to a topic
-func (m *Manager[T]) Broadcast(topic string, event T) {
+func (m *Manager[T]) Broadcast(topic string, event T) error {
 	m.mutex.RLock()
 	clients, exists := m.clients[topic]
 	clientCount := 0
@@ -120,7 +120,7 @@ func (m *Manager[T]) Broadcast(topic string, event T) {
 		m.logger.Debug("No clients found for topic",
 			zap.String("topic", topic),
 		)
-		return
+		return fmt.Errorf("no clients found for topic")
 	}
 
 	m.logger.Debug("Broadcasting event to clients",
@@ -150,6 +150,8 @@ func (m *Manager[T]) Broadcast(topic string, event T) {
 		zap.Int("successful_deliveries", successCount),
 		zap.Int("dropped_events", clientCount-successCount),
 	)
+
+	return nil
 }
 
 func (m *Manager[T]) GetClient(topic string, clientID string) chan T {

@@ -22,7 +22,6 @@ import (
 type Event struct {
 	ID        string                 `json:"id"`                 // unique identifier for the event
 	Type      string                 `json:"type"`               // type of the event (e.g. "flight.search.requested")
-	Source    string                 `json:"source"`             // source of the event (e.g. "tixia-pkg")
 	Timestamp time.Time              `json:"timestamp"`          // timestamp of the event
 	Data      map[string]interface{} `json:"data"`               // data of the event (e.g. "flight search request")
 	Metadata  map[string]interface{} `json:"metadata,omitempty"` // metadata of the event (e.g. "request_id", "search_id")
@@ -235,9 +234,6 @@ func (sm *StreamManager) PublishEvent(ctx context.Context, event Event) error {
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now().UTC()
 	}
-	if event.Source == "" {
-		event.Source = sm.config.ServiceName
-	}
 
 	eventData, err := json.Marshal(event)
 	if err != nil {
@@ -436,12 +432,199 @@ func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamName
 	}
 }
 
+// StartDLQConsumer starts a consumer that reads from the dead letter queue and republishes events
+func (sm *StreamManager) StartDLQConsumer(ctx context.Context) error {
+	dlqStreamName := fmt.Sprintf("%s:dlq", sm.config.StreamPrefix)
+
+	// Create consumer group for DLQ
+	if err := sm.CreateConsumerGroup(ctx, dlqStreamName); err != nil {
+		return fmt.Errorf("failed to create DLQ consumer group: %w", err)
+	}
+
+	sm.logger.Info("Starting DLQ consumer", zap.String("dlq_stream", dlqStreamName))
+
+	currentDelay := sm.config.ReadErrorBaseDelay
+	maxDelay := sm.config.ReadErrorMaxDelay
+
+	for {
+		select {
+		case <-ctx.Done():
+			sm.logger.Info("DLQ consumer shutdown requested")
+			return ctx.Err()
+		default:
+			results, err := sm.client.XReadGroup(ctx, &redis.XReadGroupArgs{
+				Group:    sm.config.ConsumerGroup,
+				Consumer: sm.config.ConsumerName,
+				Streams:  []string{dlqStreamName, ">"},
+				Count:    sm.config.ReadCount,
+				Block:    sm.config.ReadBlock,
+			}).Result()
+
+			if err != nil {
+				switch {
+				case err == redis.Nil:
+					continue
+				case errors.Is(err, context.Canceled):
+					sm.logger.Info("DLQ consumer stopping due to context cancellation")
+					return ctx.Err()
+				case errors.Is(err, context.DeadlineExceeded):
+					sm.logger.Debug("DLQ read block deadline reached; continuing")
+					continue
+				default:
+					sm.logger.Warn("Error reading from DLQ; backing off", zap.Error(err), zap.Duration("backoff", currentDelay))
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(currentDelay):
+					}
+					currentDelay = time.Duration(float64(currentDelay) * 1.5)
+					if currentDelay > maxDelay {
+						currentDelay = maxDelay
+					}
+					jitter := time.Duration(float64(currentDelay) * 0.1 * (0.5 + 0.5*float64(time.Now().UTC().UnixNano()%100)/100))
+					currentDelay += jitter
+					continue
+				}
+			}
+
+			for _, stream := range results {
+				for _, message := range stream.Messages {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+
+					if err := sm.processDLQMessage(ctx, message); err != nil {
+						sm.logger.Error("Failed to process DLQ message", zap.String("message_id", message.ID), zap.Error(err))
+					}
+				}
+			}
+		}
+	}
+}
+
+// processDLQMessage processes a message from the DLQ and republishes it if Origin matches
+func (sm *StreamManager) processDLQMessage(ctx context.Context, message redis.XMessage) error {
+	eventData, ok := message.Values["event"].(string)
+	if !ok {
+		return fmt.Errorf("invalid DLQ event data format")
+	}
+
+	// Unmarshal DLQ data structure: { topic: string, data: Event }
+	var dlqData struct {
+		Topic string                 `json:"topic"`
+		Data  map[string]interface{} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(eventData), &dlqData); err != nil {
+		return fmt.Errorf("failed to unmarshal DLQ data: %w", err)
+	}
+
+	// Unmarshal the event from the data field
+	eventBytes, err := json.Marshal(dlqData.Data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event data: %w", err)
+	}
+
+	var event Event
+	if err := json.Unmarshal(eventBytes, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	// Republish to the original topic (base topic, no origin/source suffix)
+	republishStreamName := dlqData.Topic
+
+	sm.logger.Info("Republishing event from DLQ",
+		zap.String("original_topic", dlqData.Topic),
+		zap.String("republish_stream", republishStreamName),
+		zap.String("event_id", event.ID),
+		zap.String("event_type", event.Type),
+	)
+
+	// Marshal event data for republishing
+	eventDataBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event for republish: %w", err)
+	}
+
+	// Inject trace context
+	traceMap := otelpkg.InjectTraceContext(ctx)
+	traceJSON, _ := json.Marshal(traceMap)
+
+	// Republish directly to the topic stream
+	result := sm.client.XAdd(ctx, &redis.XAddArgs{
+		Stream: republishStreamName,
+		Values: map[string]interface{}{
+			"event":        string(eventDataBytes),
+			"traceContext": traceJSON,
+		},
+	})
+
+	if result.Err() != nil {
+		sm.logger.Error("Failed to republish event from DLQ",
+			zap.String("republish_stream", republishStreamName),
+			zap.String("event_id", event.ID),
+			zap.Error(result.Err()),
+		)
+		return fmt.Errorf("failed to republish event: %w", result.Err())
+	}
+
+	// Acknowledge the DLQ message
+	ackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, err = sm.client.XAck(ackCtx, fmt.Sprintf("%s:dlq", sm.config.StreamPrefix), sm.config.ConsumerGroup, message.ID).Result()
+	cancel()
+	if err != nil {
+		return fmt.Errorf("failed to acknowledge DLQ message: %w", err)
+	}
+
+	sm.logger.Info("DLQ message processed and acknowledged",
+		zap.String("message_id", message.ID),
+		zap.String("event_id", event.ID),
+		zap.String("republish_stream", republishStreamName),
+	)
+
+	return nil
+}
+
 // testConnection performs a simple ping test to verify Redis connectivity
 func (sm *StreamManager) testConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	return sm.client.Ping(ctx).Err()
+}
+
+// publishToDLQ publishes a failed event to the dead letter queue
+func (sm *StreamManager) publishToDLQ(ctx context.Context, streamName string, event Event) error {
+	dlqStreamName := fmt.Sprintf("%s:dlq", sm.config.StreamPrefix)
+
+	dlqData := map[string]interface{}{
+		"topic": streamName,
+		"data":  event,
+	}
+
+	dlqDataJSON, err := json.Marshal(dlqData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal DLQ data: %w", err)
+	}
+
+	result := sm.client.XAdd(ctx, &redis.XAddArgs{
+		Stream: dlqStreamName,
+		Values: map[string]interface{}{
+			"event": string(dlqDataJSON),
+		},
+	})
+
+	if result.Err() != nil {
+		return fmt.Errorf("failed to publish to DLQ: %w", result.Err())
+	}
+
+	sm.logger.Info("Event sent to DLQ",
+		zap.String("dlq_stream", dlqStreamName),
+		zap.String("original_stream", streamName),
+		zap.String("event_id", event.ID),
+		zap.String("event_type", event.Type),
+	)
+
+	return nil
 }
 
 func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMessage) error {
@@ -524,19 +707,32 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 	handlerErr := handler(handlerCtx, event)
 	cancel()
 
-	if handlerErr != nil {
-		sm.logger.Error("Handler failed",
-			zap.String("event_type", event.Type),
-			zap.Error(handlerErr),
-		)
-	}
-
 	// Always acknowledge the message with a fresh context
 	ackCtx, ackCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	_, err := sm.client.XAck(ackCtx, streamName, sm.config.ConsumerGroup, message.ID).Result()
 	ackCancel()
 	if err != nil {
 		return fmt.Errorf("failed to acknowledge message: %w", err)
+	}
+
+	if handlerErr != nil {
+		sm.logger.Error("Handler failed, sending to DLQ",
+			zap.String("event_type", event.Type),
+			zap.String("event_id", event.ID),
+			zap.Error(handlerErr),
+		)
+
+		// Send failed event to DLQ after acknowledging
+		dlqCtx, dlqCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if dlqErr := sm.publishToDLQ(dlqCtx, streamName, event); dlqErr != nil {
+			sm.logger.Error("Failed to publish to DLQ",
+				zap.String("event_type", event.Type),
+				zap.String("event_id", event.ID),
+				zap.Error(dlqErr),
+			)
+		}
+		dlqCancel()
+		return handlerErr
 	}
 
 	sm.logger.Info("Message processed and acknowledged",
