@@ -433,7 +433,8 @@ func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamName
 }
 
 // StartDLQConsumer starts a consumer that reads from the dead letter queue and republishes events
-func (sm *StreamManager) StartDLQConsumer(ctx context.Context) error {
+// Only topics in the provided topics list will be republished. If topics is nil/empty, no republishing will occur.
+func (sm *StreamManager) StartDLQConsumer(ctx context.Context, topics []string) error {
 	dlqStreamName := fmt.Sprintf("%s:dlq", sm.config.StreamPrefix)
 
 	// Create consumer group for DLQ
@@ -493,7 +494,7 @@ func (sm *StreamManager) StartDLQConsumer(ctx context.Context) error {
 						return ctx.Err()
 					}
 
-					if err := sm.processDLQMessage(ctx, message); err != nil {
+					if err := sm.processDLQMessage(ctx, message, topics); err != nil {
 						sm.logger.Error("Failed to process DLQ message", zap.String("message_id", message.ID), zap.Error(err))
 					}
 				}
@@ -502,20 +503,106 @@ func (sm *StreamManager) StartDLQConsumer(ctx context.Context) error {
 	}
 }
 
-// processDLQMessage processes a message from the DLQ and republishes it if Origin matches
-func (sm *StreamManager) processDLQMessage(ctx context.Context, message redis.XMessage) error {
+// processDLQMessage processes a message from the DLQ and republishes it if the topic is in allowedTopics
+// If allowedTopics is nil/empty, no republishing will occur.
+func (sm *StreamManager) processDLQMessage(ctx context.Context, message redis.XMessage, allowedTopics []string) error {
 	eventData, ok := message.Values["event"].(string)
 	if !ok {
 		return fmt.Errorf("invalid DLQ event data format")
 	}
 
-	// Unmarshal DLQ data structure: { topic: string, data: Event }
+	// Unmarshal DLQ data structure: { topic: string, data: Event, attempt: int }
 	var dlqData struct {
-		Topic string                 `json:"topic"`
-		Data  map[string]interface{} `json:"data"`
+		Topic   string                 `json:"topic"`
+		Data    map[string]interface{} `json:"data"`
+		Attempt *int                   `json:"attempt,omitempty"`
 	}
 	if err := json.Unmarshal([]byte(eventData), &dlqData); err != nil {
 		return fmt.Errorf("failed to unmarshal DLQ data: %w", err)
+	}
+
+	// Check attempt - if >= 3, stop republishing
+	attempt := 1
+	if dlqData.Attempt != nil {
+		attempt = *dlqData.Attempt
+	}
+
+	if attempt >= 3 {
+		sm.logger.Warn("DLQ message attempt reached limit, skipping republish",
+			zap.String("message_id", message.ID),
+			zap.Int("attempt", attempt),
+		)
+
+		// Acknowledge the DLQ message without republishing
+		ackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := sm.client.XAck(ackCtx, fmt.Sprintf("%s:dlq", sm.config.StreamPrefix), sm.config.ConsumerGroup, message.ID).Result()
+		cancel()
+		if err != nil {
+			return fmt.Errorf("failed to acknowledge DLQ message: %w", err)
+		}
+
+		sm.logger.Info("DLQ message acknowledged without republish (attempt limit reached)",
+			zap.String("message_id", message.ID),
+			zap.Int("attempt", attempt),
+		)
+
+		return nil
+	}
+
+	// Check if topic is in allowed topics list
+	// If allowedTopics is nil/empty, disallow all topics (no republishing)
+	if len(allowedTopics) == 0 {
+		sm.logger.Warn("DLQ message topic not allowed (no topics configured), skipping republish",
+			zap.String("message_id", message.ID),
+			zap.String("topic", dlqData.Topic),
+		)
+
+		// Acknowledge the DLQ message without republishing
+		ackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := sm.client.XAck(ackCtx, fmt.Sprintf("%s:dlq", sm.config.StreamPrefix), sm.config.ConsumerGroup, message.ID).Result()
+		cancel()
+		if err != nil {
+			return fmt.Errorf("failed to acknowledge DLQ message: %w", err)
+		}
+
+		sm.logger.Info("DLQ message acknowledged without republish (topic not allowed)",
+			zap.String("message_id", message.ID),
+			zap.String("topic", dlqData.Topic),
+		)
+
+		return nil
+	}
+
+	// Check if the topic is in the allowed list
+	topicAllowed := false
+	for _, allowedTopic := range allowedTopics {
+		if dlqData.Topic == allowedTopic {
+			topicAllowed = true
+			break
+		}
+	}
+
+	if !topicAllowed {
+		sm.logger.Warn("DLQ message topic not in allowed list, skipping republish",
+			zap.String("message_id", message.ID),
+			zap.String("topic", dlqData.Topic),
+			zap.Strings("allowed_topics", allowedTopics),
+		)
+
+		// Acknowledge the DLQ message without republishing
+		ackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := sm.client.XAck(ackCtx, fmt.Sprintf("%s:dlq", sm.config.StreamPrefix), sm.config.ConsumerGroup, message.ID).Result()
+		cancel()
+		if err != nil {
+			return fmt.Errorf("failed to acknowledge DLQ message: %w", err)
+		}
+
+		sm.logger.Info("DLQ message acknowledged without republish (topic not in allowed list)",
+			zap.String("message_id", message.ID),
+			zap.String("topic", dlqData.Topic),
+		)
+
+		return nil
 	}
 
 	// Unmarshal the event from the data field
@@ -529,6 +616,12 @@ func (sm *StreamManager) processDLQMessage(ctx context.Context, message redis.XM
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
+	// Store attempt in event metadata for potential future DLQ republish
+	if event.Metadata == nil {
+		event.Metadata = make(map[string]interface{})
+	}
+	event.Metadata["dlq_attempt"] = attempt
+
 	// Republish to the original topic (base topic, no origin/source suffix)
 	republishStreamName := dlqData.Topic
 
@@ -537,6 +630,7 @@ func (sm *StreamManager) processDLQMessage(ctx context.Context, message redis.XM
 		zap.String("republish_stream", republishStreamName),
 		zap.String("event_id", event.ID),
 		zap.String("event_type", event.Type),
+		zap.Int("attempt", attempt),
 	)
 
 	// Marshal event data for republishing
@@ -596,9 +690,18 @@ func (sm *StreamManager) testConnection(ctx context.Context) error {
 func (sm *StreamManager) publishToDLQ(ctx context.Context, streamName string, event Event) error {
 	dlqStreamName := fmt.Sprintf("%s:dlq", sm.config.StreamPrefix)
 
+	// Check if attempt exists in event metadata (from previous DLQ republish)
+	attempt := 1
+	if event.Metadata != nil {
+		if existingAttempt, ok := event.Metadata["dlq_attempt"].(float64); ok {
+			attempt = int(existingAttempt) + 1
+		}
+	}
+
 	dlqData := map[string]interface{}{
-		"topic": streamName,
-		"data":  event,
+		"topic":   streamName,
+		"data":    event,
+		"attempt": attempt,
 	}
 
 	dlqDataJSON, err := json.Marshal(dlqData)
@@ -622,6 +725,7 @@ func (sm *StreamManager) publishToDLQ(ctx context.Context, streamName string, ev
 		zap.String("original_stream", streamName),
 		zap.String("event_id", event.ID),
 		zap.String("event_type", event.Type),
+		zap.Int("attempt", attempt),
 	)
 
 	return nil
