@@ -17,6 +17,25 @@ import (
 // req: HTTP request to execute
 // timeout: Timeout duration for individual request attempts
 func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Request, timeout time.Duration) (*http.Response, error) {
+	// If MaxRetries is 0, execute once without retry logic
+	if c.config.Retry.MaxRetries == 0 {
+		timeoutCtx, timeoutCancel := context.WithTimeout(deadlineCtx, timeout)
+		req = req.Clone(timeoutCtx)
+		resp, err := http.DefaultClient.Do(req)
+		timeoutCancel()
+
+		if err == nil && resp != nil && resp.Body != nil {
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if readErr != nil {
+				return nil, fmt.Errorf("[HTTP Retry] Failed to read response body: %w", readErr)
+			}
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		return resp, err
+	}
+
 	var lastErr error
 	var lastResp *http.Response
 	backoff := c.config.Retry.InitialBackoff
