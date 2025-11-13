@@ -46,10 +46,10 @@ type HotelSearchRequest struct {
 	Nationality  string  `json:"Nationality" validate:"required"`
 	Country      string  `json:"Country"`
 	City         string  `json:"City"`
-	Hotels       *Hotels `json:"Hotels"` // Hotels is optional
+	Hotels       *Hotels `json:"Hotels,omitempty"` // Hotels is optional
 	CheckIn      string  `json:"CheckIn" validate:"required"`
 	CheckOut     string  `json:"CheckOut" validate:"required"`
-	Rooms        *Rooms  `json:"Rooms"` // Rooms is optional
+	Rooms        *Rooms  `json:"Rooms,omitempty"` // Rooms is optional
 	Currency     string  `json:"Currency"`
 	Language     string  `json:"Language"`
 	AvailFlag    bool    `json:"AvailFlag"`
