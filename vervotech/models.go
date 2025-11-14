@@ -179,12 +179,6 @@ type GetCuratedContentByVervotechIdsResponse struct {
 	StatusCode    int            `json:"StatusCode"`
 }
 
-// ProviderHotelContent represents provider hotel content
-type ProviderHotelContent struct {
-	VervotechId int64                  `json:"VervotechId"`
-	Content     map[string]interface{} `json:"Content"` // Provider-specific content structure
-}
-
 // ProviderFacility represents a facility in provider hotel content
 type ProviderFacility struct {
 	ID               string `json:"id"`
@@ -254,11 +248,11 @@ type ProviderPolicy struct {
 
 // ProviderCheckin represents checkin information
 type ProviderCheckin struct {
-	BeginTime           string        `json:"BeginTime"`
-	EndTime             string        `json:"EndTime"`
-	MinAge              int           `json:"MinAge"`
-	Instructions        []string      `json:"Instructions"`
-	SpecialInstructions []interface{} `json:"SpecialInstructions"`
+	BeginTime           string   `json:"BeginTime"`
+	EndTime             string   `json:"EndTime"`
+	MinAge              int      `json:"MinAge"`
+	Instructions        []string `json:"Instructions"`
+	SpecialInstructions []any    `json:"SpecialInstructions"`
 }
 
 // ProviderAttribute represents an attribute
@@ -295,7 +289,7 @@ type GuestReview struct {
 type ProviderReview struct {
 	Rating          float64          `json:"Rating"`
 	Count           int              `json:"Count"`
-	RatingImage     interface{}      `json:"RatingImage"`
+	RatingImage     any              `json:"RatingImage"`
 	Provider        string           `json:"Provider"`
 	CategoryRatings []CategoryRating `json:"CategoryRatings"`
 	GuestReviews    []GuestReview    `json:"GuestReviews"`
@@ -303,11 +297,11 @@ type ProviderReview struct {
 
 // PointOfInterest represents a point of interest
 type PointOfInterest struct {
-	Name     string      `json:"Name"`
-	Type     string      `json:"Type"`
-	Distance string      `json:"Distance"`
-	Geocode  interface{} `json:"Geocode"`
-	Unit     string      `json:"Unit"`
+	Name     string `json:"Name"`
+	Type     string `json:"Type"`
+	Distance string `json:"Distance"`
+	Geocode  any    `json:"Geocode"`
+	Unit     string `json:"Unit"`
 }
 
 // ProviderFee represents a fee
@@ -378,7 +372,7 @@ type ProviderHotel struct {
 	MasterChainName       string                `json:"MasterChainName"`
 	PopularityScore       int                   `json:"PopularityScore"`
 	ContentScore          int                   `json:"ContentScore"`
-	LicenseNumber         interface{}           `json:"LicenseNumber"`
+	LicenseNumber         any                   `json:"LicenseNumber"`
 	GeoCode               ProviderGeoCode       `json:"GeoCode"`
 	ProviderGeocodes      ProviderGeoCode       `json:"ProviderGeocodes"`
 	Checkout              ProviderCheckout      `json:"Checkout"`
