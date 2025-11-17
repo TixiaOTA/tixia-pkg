@@ -12,9 +12,9 @@ import (
 // Test configuration variables - Update these with your test credentials
 var (
 	testBaseURL    = "https://hotelmapping.vervotech.com/api" // Base URL for the API
-	testAPIKey     = "test-api-key"                           // Your API key
-	testAccountID  = "test-account-id"                        // Your account ID
-	testSyncID     = "test-sync-id"                           // Your sync ID (optional)
+	testAPIKey     = "5295caa4-b23c-4ee7-82b6-1cf8e06ef33a"   // Your API key
+	testAccountID  = "johndoe"                                // Your account ID
+	testSyncID     = "323"                                    // Your sync ID (optional)
 	testAPIVersion = "3.0"                                    // API version
 
 	// Test data for GetNewMappings
@@ -220,4 +220,78 @@ func (suite *EndpointTestSuite) TestGetProviderContentByVervotechIds_Success() {
 			}
 		}
 	}
+}
+
+func (suite *EndpointTestSuite) TestGetMasterHotelFacilityGroups_Success() {
+	req := GetMasterHotelFacilityGroupsRequest{}
+
+	resp, err := suite.client.GetMasterHotelFacilityGroups(context.Background(), req)
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.Equal("Success", resp.Message)
+	suite.NotEmpty(resp.FacilityGroups)
+
+	fmt.Printf("Received %d facility groups\n", len(resp.FacilityGroups))
+	for i, group := range resp.FacilityGroups {
+		if i < 5 {
+			fmt.Printf("Facility Group %d: ID=%d, Name=%s\n",
+				i+1, group.ID, group.Name)
+		}
+	}
+}
+
+func (suite *EndpointTestSuite) TestGetMasterHotelChains_Success() {
+	req := GetMasterHotelChainsRequest{}
+
+	resp, err := suite.client.GetMasterHotelChains(context.Background(), req)
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.Equal("Success", resp.Message)
+	suite.NotEmpty(resp.HotelChains)
+
+	fmt.Printf("Received %d hotel chains\n", len(resp.HotelChains))
+	for i, hotelChain := range resp.HotelChains {
+		if i < 5 {
+			fmt.Printf("Hotel Chain %d: ID=%d, ChainCode=%s, ChainName=%s\n",
+				i+1, hotelChain.ID, hotelChain.ChainCode, hotelChain.ChainName)
+		}
+	}
+}
+
+func (suite *EndpointTestSuite) TestGetMasterPropertyTypes_Success() {
+	req := GetMasterPropertyTypesRequest{}
+
+	resp, err := suite.client.GetMasterPropertyTypes(context.Background(), req)
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.Equal("Success", resp.Message)
+	suite.NotEmpty(resp.PropertyTypes)
+
+	fmt.Printf("Received %d property types\n", len(resp.PropertyTypes))
+	for i, propertyType := range resp.PropertyTypes {
+		if i < 5 {
+			fmt.Printf("Property Type %d: %s\n",
+				i+1, propertyType)
+		}
+	}
+}
+
+func (suite *EndpointTestSuite) TestGetMasterCountryCodes_Success() {
+	req := GetMasterCountryCodesRequest{}
+
+	resp, err := suite.client.GetMasterCountryCodes(context.Background(), req)
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.Equal("Success", resp.Message)
+	suite.NotEmpty(resp.Countries)
+
+	fmt.Printf("Received %d countries\n", len(resp.Countries))
 }

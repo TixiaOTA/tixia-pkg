@@ -255,3 +255,127 @@ func (c *Client) GetProviderContentByVervotechIds(ctx context.Context, req GetPr
 
 	return &response, nil
 }
+
+// GetMasterHotelFacilityGroups retrieves master hotel facility groups from the Vervotech API
+func (c *Client) GetMasterHotelFacilityGroups(ctx context.Context, req GetMasterHotelFacilityGroupsRequest) (*GetMasterHotelFacilityGroupsResponse, error) {
+	path := "/" + c.config.APIVersion + "/content/GetMasterHotelFacilityGroups"
+
+	headers := c.buildHeaders(true)
+
+	httpResp, err := c.httpClient.Get(ctx, client.GetRequest{
+		Path:    path,
+		Headers: &headers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		return nil, &APIError{
+			Code:    httpResp.StatusCode,
+			Message: string(bodyBytes),
+		}
+	}
+
+	var response GetMasterHotelFacilityGroupsResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// GetMasterHotelChains retrieves master hotel chains from the Vervotech API
+func (c *Client) GetMasterHotelChains(ctx context.Context, req GetMasterHotelChainsRequest) (*GetMasterHotelChainsResponse, error) {
+	path := "/" + c.config.APIVersion + "/content/GetMasterHotelChains"
+
+	headers := c.buildHeaders(true)
+
+	httpResp, err := c.httpClient.Get(ctx, client.GetRequest{
+		Path:    path,
+		Headers: &headers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		return nil, &APIError{
+			Code:    httpResp.StatusCode,
+			Message: string(bodyBytes),
+		}
+	}
+
+	var response GetMasterHotelChainsResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// GetMasterPropertyTypes retrieves master property types from the Vervotech API
+func (c *Client) GetMasterPropertyTypes(ctx context.Context, req GetMasterPropertyTypesRequest) (*GetMasterPropertyTypesResponse, error) {
+	path := "/" + c.config.APIVersion + "/content/GetMasterPropertyTypes"
+
+	headers := c.buildHeaders(true)
+
+	httpResp, err := c.httpClient.Get(ctx, client.GetRequest{
+		Path:    path,
+		Headers: &headers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		return nil, &APIError{
+			Code:    httpResp.StatusCode,
+			Message: string(bodyBytes),
+		}
+	}
+
+	var response GetMasterPropertyTypesResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// GetMasterCountryCodes retrieves master country codes from the Vervotech API
+func (c *Client) GetMasterCountryCodes(ctx context.Context, req GetMasterCountryCodesRequest) (*GetMasterCountryCodesResponse, error) {
+	path := "/" + c.config.APIVersion + "/content/GetMasterCountryCodes"
+
+	headers := c.buildHeaders(true)
+
+	httpResp, err := c.httpClient.Get(ctx, client.GetRequest{
+		Path:    path,
+		Headers: &headers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		return nil, &APIError{
+			Code:    httpResp.StatusCode,
+			Message: string(bodyBytes),
+		}
+	}
+
+	var response GetMasterCountryCodesResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}

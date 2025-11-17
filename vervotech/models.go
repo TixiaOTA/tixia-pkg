@@ -49,6 +49,26 @@ type GetProviderContentByVervotechIdsRequest struct {
 	VervotechIds                  []int64  `json:"VervotechIds"`                  // List of Vervotech IDs
 }
 
+// GetMasterHotelFacilityGroupsRequest represents the request parameters for GetMasterHotelFacilityGroups
+type GetMasterHotelFacilityGroupsRequest struct {
+	// No parameters for this endpoint
+}
+
+// GetMasterHotelChainsRequest represents the request parameters for GetMasterHotelChains
+type GetMasterHotelChainsRequest struct {
+	// No parameters for this endpoint
+}
+
+// GetMasterPropertyTypesRequest represents the request parameters for GetMasterPropertyTypes
+type GetMasterPropertyTypesRequest struct {
+	// No parameters for this endpoint
+}
+
+// GetMasterCountryCodesRequest represents the request parameters for GetMasterCountryCodes
+type GetMasterCountryCodesRequest struct {
+	// No parameters for this endpoint
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 // APIError represents an error response from the API
@@ -107,12 +127,64 @@ type GetAllVervotechIdsResponse struct {
 	StatusCode   int     `json:"StatusCode"`
 }
 
+// GetMasterHotelFacilityGroupsResponse represents the response from GetMasterHotelFacilityGroups endpoint
+type GetMasterHotelFacilityGroupsResponse struct {
+	Status         bool            `json:"Status"`
+	Message        string          `json:"Message"`
+	StatusCode     int             `json:"StatusCode"`
+	FacilityGroups []FacilityGroup `json:"FacilityGroups"`
+}
+
+// GetMasterHotelChainsResponse represents the response from GetMasterHotelChains endpoint
+type GetMasterHotelChainsResponse struct {
+	Status      bool         `json:"Status"`
+	Message     string       `json:"Message"`
+	StatusCode  int          `json:"StatusCode"`
+	HotelChains []HotelChain `json:"HotelChains"`
+}
+
+// GetMasterPropertyTypesResponse represents the response from GetMasterPropertyTypes endpoint
+type GetMasterPropertyTypesResponse struct {
+	Status        bool     `json:"Status"`
+	Message       string   `json:"Message"`
+	StatusCode    int      `json:"StatusCode"`
+	PropertyTypes []string `json:"PropertyTypes"` // Example: ["Hotel", "Apartment", "Resort", "Motel", "Hostel"]
+}
+
+// GetMasterCountryCodesResponse represents the response from GetMasterCountryCodes endpoint
+type GetMasterCountryCodesResponse struct {
+	Status     bool    `json:"Status"`
+	Message    string  `json:"Message"`
+	StatusCode int     `json:"StatusCode"`
+	Countries  Country `json:"Countries"`
+}
+
+// --------------------------------- SHARED TYPES ---------------------------------
+
 // Facility represents a hotel facility
 type Facility struct {
 	ID      int    `json:"Id"`
 	Name    string `json:"Name"`
 	GroupID int    `json:"GroupId"`
 }
+
+// FacilityGroup represents a facility group
+type FacilityGroup struct {
+	ID   int    `json:"Id"`
+	Name string `json:"Name"`
+}
+
+// HotelChain represents a hotel chain
+type HotelChain struct {
+	ID        int    `json:"Id"`
+	ChainCode string `json:"ChainCode"`
+	ChainName string `json:"ChainName"`
+}
+
+// CountryCode represents a country code
+//
+// Example: "ID": "Indonesia"
+type Country map[string]string
 
 // Location represents a location entity (airport, train station, etc.)
 type Location struct {
