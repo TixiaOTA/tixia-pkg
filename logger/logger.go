@@ -2,7 +2,10 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -243,4 +246,161 @@ func (w *lokiWriter) Sync() error {
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// Sanitize takes a struct and returns a sanitized version with fields marked
+// with `log:"redact"` tag having their values replaced with "[REDACTED]".
+// The result is returned as a map[string]any suitable for logging.
+func Sanitize(input any) (map[string]any, error) {
+	if input == nil {
+		return nil, nil
+	}
+
+	val := reflect.ValueOf(input)
+	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return nil, nil
+		}
+		val = val.Elem()
+	}
+
+	if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("input must be a struct or pointer to struct, got %T", input)
+	}
+
+	result := make(map[string]any)
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		fieldVal := val.Field(i)
+
+		// Skip unexported fields
+		if !fieldVal.CanInterface() {
+			continue
+		}
+
+		// Get the JSON tag name, fallback to field name
+		jsonTag := field.Tag.Get("json")
+		fieldName := field.Name
+		if jsonTag != "" && jsonTag != "-" {
+			// Handle json tag options like "omitempty"
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" {
+				fieldName = parts[0]
+			}
+		}
+
+		// Check if field should be redacted
+		logTag := field.Tag.Get("log")
+		shouldRedact := strings.Contains(logTag, "redact")
+
+		// Handle the field value
+		sanitizedValue := sanitizeValue(fieldVal, shouldRedact)
+		result[fieldName] = sanitizedValue
+	}
+
+	return result, nil
+}
+
+// sanitizeValue recursively sanitizes a value based on its type
+func sanitizeValue(val reflect.Value, shouldRedact bool) any {
+	if shouldRedact {
+		return "[REDACTED]"
+	}
+
+	if !val.IsValid() {
+		return nil
+	}
+
+	switch val.Kind() {
+	case reflect.Ptr:
+		if val.IsNil() {
+			return nil
+		}
+		return sanitizeValue(val.Elem(), shouldRedact)
+
+	case reflect.Struct:
+		result := make(map[string]any)
+		typ := val.Type()
+
+		for i := 0; i < val.NumField(); i++ {
+			field := typ.Field(i)
+			fieldVal := val.Field(i)
+
+			if !fieldVal.CanInterface() {
+				continue
+			}
+
+			jsonTag := field.Tag.Get("json")
+			fieldName := field.Name
+			if jsonTag != "" && jsonTag != "-" {
+				parts := strings.Split(jsonTag, ",")
+				if parts[0] != "" {
+					fieldName = parts[0]
+				}
+			}
+
+			logTag := field.Tag.Get("log")
+			nestedShouldRedact := strings.Contains(logTag, "redact")
+
+			sanitizedValue := sanitizeValue(fieldVal, nestedShouldRedact)
+			result[fieldName] = sanitizedValue
+		}
+
+		return result
+
+	case reflect.Slice, reflect.Array:
+		if val.IsNil() && val.Kind() == reflect.Slice {
+			return nil
+		}
+
+		length := val.Len()
+		result := make([]any, length)
+
+		for i := 0; i < length; i++ {
+			result[i] = sanitizeValue(val.Index(i), shouldRedact)
+		}
+
+		return result
+
+	case reflect.Map:
+		if val.IsNil() {
+			return nil
+		}
+
+		result := make(map[string]any)
+		for _, key := range val.MapKeys() {
+			keyStr := fmt.Sprintf("%v", key.Interface())
+			result[keyStr] = sanitizeValue(val.MapIndex(key), shouldRedact)
+		}
+
+		return result
+
+	case reflect.Interface:
+		if val.IsNil() {
+			return nil
+		}
+		return sanitizeValue(val.Elem(), shouldRedact)
+
+	default:
+		// For primitive types, return the value as-is
+		return val.Interface()
+	}
+}
+
+// SanitizeToJSON takes a struct and returns a sanitized JSON string.
+// Fields marked with `log:"redact"` will have their values replaced with "[REDACTED]".
+func SanitizeToJSON(input any) (string, error) {
+	sanitized, err := Sanitize(input)
+	if err != nil {
+		return "", err
+	}
+
+	jsonBytes, err := json.Marshal(sanitized)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal sanitized data: %w", err)
+	}
+
+	return string(jsonBytes), nil
 }
