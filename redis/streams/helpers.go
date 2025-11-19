@@ -40,13 +40,13 @@ func StartEventConsumer(ctx context.Context, streamManager *StreamManager, strea
 }
 
 // StartEventConsumerBatch starts a single goroutine consuming multiple topics in one loop
-func StartEventConsumerBatch(ctx context.Context, streamManager *StreamManager, streamPrefix string, topics []string, log *logger.Logger, timeout time.Duration) {
+func StartEventConsumerBatch(ctx context.Context, streamManager *StreamManager, streamPrefix string, topics []string, log *logger.Logger) {
 	streamNames := make([]string, 0, len(topics))
 	for _, t := range topics {
 		streamNames = append(streamNames, fmt.Sprintf("%s:%s", streamPrefix, t))
 	}
 	go func() {
-		if err := streamManager.StartConsumerForStreams(ctx, streamNames, timeout); err != nil {
+		if err := streamManager.StartConsumerForStreams(ctx, streamNames); err != nil {
 			log.Error("batch consumer failed", zap.Error(err))
 		}
 	}()

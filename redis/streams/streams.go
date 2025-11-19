@@ -436,7 +436,7 @@ func (sm *StreamManager) StartConsumer(ctx context.Context, streamName string, t
 }
 
 // StartConsumerForStreams starts a single consumer that reads from multiple streams in one loop
-func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamNames []string, timeout time.Duration) error {
+func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamNames []string) error {
 	for _, s := range streamNames {
 		if err := sm.CreateConsumerGroup(ctx, s); err != nil {
 			return err
