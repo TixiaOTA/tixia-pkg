@@ -28,6 +28,25 @@ type SearchHotelRequest struct {
 	DetailLevel  string `json:"DetailLevel"`
 }
 
+type RecheckHotelRequest struct {
+	Login       Credentials         `json:"Login"`
+	SessionID   string              `json:"SessionId"`
+	Nationality string              `json:"Nationality"`
+	Country     string              `json:"Country"`
+	City        string              `json:"City"`
+	HotelCode   string              `json:"HotelCode,omitempty"`
+	CheckIn     string              `json:"CheckIn"`  // Format: YYYY-MM-DD
+	CheckOut    string              `json:"CheckOut"` // Format: YYYY-MM-DD
+	RoomDetails *RoomDetailsRequest `json:"RoomDetails"`
+	Rooms       struct {
+		Room []RoomRequest `json:"Room"`
+	} `json:"Rooms"`
+	Currency    string `json:"Currency"`
+	Language    string `json:"Language,omitempty"`
+	AvailFlag   bool   `json:"AvailFlag,omitempty"`
+	DetailLevel string `json:"DetailLevel,omitempty"`
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -47,12 +66,28 @@ type SearchHotelResponse struct {
 	XSI          *string `json:"xsi"`
 }
 
+type RecheckHotelResponse struct {
+	Status       bool    `json:"status"`
+	ResponseTime int     `json:"responseTime"`
+	SessionID    string  `json:"sessionID"`
+	CheckIn      string  `json:"checkIn"`
+	CheckOut     string  `json:"checkOut"`
+	Currency     string  `json:"currency"`
+	ErrorCode    *string `json:"errorCode"`
+	ErrorMessage *string `json:"errorMessage"`
+	Nationality  *string `json:"nationality"`
+
+	Hotels struct {
+		Hotel HotelRecheckResponse `json:"hotel"`
+	} `json:"hotels,omitempty"`
+}
+
 // --------------------------------- SHARED TYPES ---------------------------------
 
 type Credentials struct {
-	AgencyCode string `json:"AgencyCode"`
-	Username   string `json:"Username"`
-	Password   string `json:"Password"`
+	AgencyCode string `json:"AgencyCode" log:"redact"`
+	Username   string `json:"Username" log:"redact"`
+	Password   string `json:"Password" log:"redact"`
 }
 
 func (c *Credentials) Validate() error {
@@ -88,12 +123,13 @@ func (e *MGError) Error() string {
 }
 
 type RoomRequest struct {
-	RoomNo     uint `json:"RoomNo"`
-	NoOfAdults uint `json:"NoOfAdults"`
-	NoOfChild  uint `json:"NoOfChild"`
-	Child1Age  uint `json:"Child1Age"`
-	Child2Age  uint `json:"Child2Age"`
-	ExtraBed   bool `json:"ExtraBed"`
+	RoomNo     uint   `json:"RoomNo"`
+	NoOfAdults uint   `json:"NoOfAdults"`
+	NoOfChild  uint   `json:"NoOfChild"`
+	Child1Age  uint   `json:"Child1Age"`
+	Child2Age  uint   `json:"Child2Age"`
+	ExtraBed   bool   `json:"ExtraBed"`
+	RateKey    string `json:"RateKey,omitempty"`
 }
 
 type Hotel struct {
@@ -206,4 +242,20 @@ type Compulsory struct {
 	Name        string  `json:"name"`
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description,omitempty"`
+}
+
+type RoomDetailsRequest struct {
+	Code                   string `json:"Code"`
+	MealPlan               string `json:"MealPlan"`
+	CancellationPolicyType string `json:"CancellationPolicyType"`
+	PackageRate            bool   `json:"PackageRate"`
+}
+
+type HotelRecheckResponse struct {
+	Code        string     `json:"code"`
+	Latitude    float64    `json:"latitude"`
+	Longitude   float64    `json:"longitude"`
+	Name        string     `json:"name"`
+	Rating      string     `json:"rating"`
+	RoomDetails RoomDetail `json:"roomDetails"`
 }
