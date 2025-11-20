@@ -16,4 +16,7 @@ const (
 	// Invalid request.
 	// Request body is invalid.
 	JRVXML013 MGErrorCode = "JRVXML013"
+
+	// AgencyBookingID already exists.
+	JRVXML112 MGErrorCode = "JRVXML112"
 )

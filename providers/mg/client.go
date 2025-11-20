@@ -12,7 +12,7 @@ type Config struct {
 	BaseURL     string      // Base URL for the API (required)
 	Credentials Credentials // Credentials for authentication (required)
 
-	RetryConfig *client.RetryConfig // Retry configuration for the HTTP client (optional, default: 3 retries, 1 second initial backoff, 5 second max backoff, 2x multiplier)
+	RetryConfig *client.RetryConfig // Retry configuration for the HTTP client (optional, default: 3 retries, 5 second initial backoff, 15 second max backoff, 2x multiplier)
 }
 
 type Client struct {
@@ -36,8 +36,8 @@ func New(config Config, logger *logger.Logger) (*Client, error) {
 	if config.RetryConfig == nil {
 		config.RetryConfig = &client.RetryConfig{
 			MaxRetries:        3,
-			InitialBackoff:    1 * time.Second,
-			MaxBackoff:        5 * time.Second,
+			InitialBackoff:    5 * time.Second,
+			MaxBackoff:        15 * time.Second,
 			BackoffMultiplier: 2.0,
 		}
 	}

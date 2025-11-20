@@ -47,6 +47,27 @@ type RecheckHotelRequest struct {
 	DetailLevel string `json:"DetailLevel,omitempty"`
 }
 
+// BookHotelRequest represents the request structure for booking a hotel
+type BookHotelRequest struct {
+	Login           Credentials        `json:"Login"`
+	SessionID       string             `json:"SessionId"`
+	AgencyBookingID string             `json:"AgencyBookingID"` // Tixia generated booking ID
+	Nationality     string             `json:"Nationality"`
+	CheckIn         string             `json:"CheckIn"`  // Format: YYYY-MM-DD
+	CheckOut        string             `json:"CheckOut"` // Format: YYYY-MM-DD
+	HotelCode       string             `json:"HotelCode"`
+	RoomDetails     RoomDetailsRequest `json:"RoomDetails"`
+	Rooms           struct {
+		Room []RoomBookingRequest `json:"Room"`
+	} `json:"Rooms"`
+	Currency    string `json:"Currency"`
+	Language    string `json:"Language,omitempty"`
+	AvailFlag   bool   `json:"AvailFlag,omitempty"`
+	OnHold      bool   `json:"OnHold,omitempty"`
+	SpecialReq  string `json:"SpecialReq,omitempty"`
+	DetailLevel string `json:"DetailLevel,omitempty"`
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -80,6 +101,13 @@ type RecheckHotelResponse struct {
 	Hotels struct {
 		Hotel HotelRecheckResponse `json:"hotel"`
 	} `json:"hotels,omitempty"`
+}
+
+type BookHotelResponse struct {
+	Status        bool           `json:"status"`
+	ResponseTime  int            `json:"responseTime"`
+	SessionID     string         `json:"sessionID"`
+	BookingDetail BookingDetails `json:"bookingDetails"`
 }
 
 // --------------------------------- SHARED TYPES ---------------------------------
@@ -258,4 +286,47 @@ type HotelRecheckResponse struct {
 	Name        string     `json:"name"`
 	Rating      string     `json:"rating"`
 	RoomDetails RoomDetail `json:"roomDetails"`
+}
+
+type RoomBookingRequest struct {
+	PaxDetails struct {
+		Pax []Pax `json:"Pax"`
+	} `json:"PaxDetails"`
+	RoomNo     uint   `json:"RoomNo"`
+	NoOfAdults uint   `json:"NoOfAdults"`
+	NoOfChild  uint   `json:"NoOfChild"`
+	ExtraBed   bool   `json:"ExtraBed"`
+	RateKey    string `json:"RateKey"`
+}
+
+type BookingDetails struct {
+	Nationality       string       `json:"nationality"`
+	CheckIn           string       `json:"checkIn"`
+	CheckOut          string       `json:"checkOut"`
+	Currency          string       `json:"currency"`
+	MgBookingID       string       `json:"mgBookingID"`
+	AgencyBookingID   string       `json:"agencyBookingID"`
+	MgBookingVerID    string       `json:"mgBookingVersionID"`
+	AgencyVoucherNo   string       `json:"agencyVoucherNo"`
+	AgencyVoucherDate string       `json:"agencyVoucherDate"`
+	Status            string       `json:"status"`
+	SpecialRequest    CDataWrapper `json:"specialRequest"`
+	Hotels            struct {
+		Hotel HotelRecheckResponse `json:"hotel"`
+	} `json:"hotels"`
+}
+
+type CDataWrapper struct {
+	CDataContent []CData `json:"cDataContent"`
+}
+
+type CData struct {
+	CDataSection string `json:"#cdata-section"`
+}
+
+type Pax struct {
+	Salutation string `json:"Salutation"`
+	FirstName  string `json:"FirstName"`
+	LastName   string `json:"LastName"`
+	Age        uint   `json:"Age"`
 }
