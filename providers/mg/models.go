@@ -68,6 +68,13 @@ type BookHotelRequest struct {
 	DetailLevel string `json:"DetailLevel,omitempty"`
 }
 
+// GetRSVNDetailsRequest represents the request structure for getting the RSVN details
+type GetRSVNDetailsRequest struct {
+	Login           Credentials `json:"Login"`
+	MGBookingID     string      `json:"MGBookingID"`
+	AgencyBookingID string      `json:"AgencyBookingID"` // Tixia generated booking ID
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -104,6 +111,14 @@ type RecheckHotelResponse struct {
 }
 
 type BookHotelResponse struct {
+	Status        bool           `json:"status"`
+	ResponseTime  int            `json:"responseTime"`
+	SessionID     string         `json:"sessionID"`
+	BookingDetail BookingDetails `json:"bookingDetails"`
+}
+
+// GetRSVNDetailsResponse represents the response structure for getting the RSVN details
+type GetRSVNDetailsResponse struct {
 	Status        bool           `json:"status"`
 	ResponseTime  int            `json:"responseTime"`
 	SessionID     string         `json:"sessionID"`
