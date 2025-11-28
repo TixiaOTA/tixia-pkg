@@ -391,3 +391,26 @@ func (suite *EndpointTestSuite) TestGetRSVNDetails_Success() {
 	fmt.Printf("GetRSVNDetails successful - MG Booking ID: %s, Status: %s\n",
 		resp.BookingDetail.MgBookingID, resp.BookingDetail.Status)
 }
+
+func (suite *EndpointTestSuite) TestCancelReservation_Success() {
+	req := CancelReservationRequest{
+		Login: Credentials{
+			AgencyCode: testAgencyCode,
+			Username:   testUsername,
+			Password:   testPassword,
+		},
+		AgencyBookingID: testAgencyBookingID,
+	}
+
+	resp, err := suite.client.CancelReservation(context.Background(), req)
+
+	suite.Nil(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.NotEmpty(resp.SessionID)
+	suite.NotEmpty(resp.BookingDetail.MgBookingID)
+
+	suite.Equal(testAgencyBookingID, resp.BookingDetail.AgencyBookingID)
+	fmt.Printf("CancelReservation successful - MG Booking ID: %s, Agency Booking ID: %s, Status: %s\n",
+		resp.BookingDetail.MgBookingID, resp.BookingDetail.AgencyBookingID, resp.BookingDetail.Status)
+}

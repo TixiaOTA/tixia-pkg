@@ -12,17 +12,19 @@ import (
 )
 
 const (
-	searchHotelPath    = "/SearchHotel"
-	recheckHotelPath   = "/RecheckHotel"
-	bookHotelPath      = "/BookHotel"
-	getRSVNDetailsPath = "/GetRSVNDetails"
+	searchHotelPath       = "/SearchHotel"
+	recheckHotelPath      = "/RecheckHotel"
+	bookHotelPath         = "/BookHotel"
+	getRSVNDetailsPath    = "/GetRSVNDetails"
+	cancelReservationPath = "/CancelReservation"
 )
 
 const (
-	searchHotelTimeout    = 10 * time.Second
-	recheckHotelTimeout   = 10 * time.Second
-	bookHotelTimeout      = 120 * time.Second
-	getRSVNDetailsTimeout = 10 * time.Second
+	searchHotelTimeout       = 10 * time.Second
+	recheckHotelTimeout      = 10 * time.Second
+	bookHotelTimeout         = 120 * time.Second
+	getRSVNDetailsTimeout    = 10 * time.Second
+	cancelReservationTimeout = 10 * time.Second
 )
 
 // SearchHotel searches for hotels
@@ -253,6 +255,65 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequest) 
 
 	// If not an MGError, unmarshal as GetRSVNDetailsResponse
 	var resp GetRSVNDetailsResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	return &resp, nil
+}
+
+// CancelReservation cancels a reservation
+func (c *Client) CancelReservation(ctx context.Context, req CancelReservationRequest) (*CancelReservationResponse, *MGError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "CancelReservation")
+	defer span.End()
+
+	// Sanitize the request for logging
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CancelReservation request", zap.Any("request", sanitizedReq))
+
+	// Set timeout
+	c.httpClient.SetTimeout(cancelReservationTimeout)
+
+	httpResp, err := c.sendRequest(ctx, req, cancelReservationPath, nil)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	// Try to unmarshal as MGError first
+	var mgError MGError
+	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
+		// Check if it's a valid MGError
+		// Status = false, then it's an error
+		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
+			return nil, &MGError{
+				Status:       false,
+				ErrorCode:    mgError.ErrorCode,
+				ErrorMessage: mgError.ErrorMessage,
+			}
+		}
+	}
+
+	// If not an MGError, unmarshal as CancelReservationResponse
+	var resp CancelReservationResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
 		return nil, &MGError{
 			Status:       false,
