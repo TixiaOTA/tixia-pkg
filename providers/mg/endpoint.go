@@ -28,18 +28,21 @@ const (
 )
 
 // SearchHotel searches for hotels
-func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*SearchHotelResponse, *MGError) {
+func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*SearchHotelResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "SearchHotel")
 	defer span.End()
 
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
 	// Sanitize the request for logging
-	sanitizedReq, _ := logger.Sanitize(req)
+	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SearchHotel request", zap.Any("request", sanitizedReq))
 
 	// Set timeout
 	c.httpClient.SetTimeout(searchHotelTimeout)
 
-	httpResp, err := c.sendRequest(ctx, req, searchHotelPath, nil)
+	httpResp, err := c.sendRequest(ctx, internalReq, searchHotelPath, nil)
 	if err != nil {
 		return nil, &MGError{
 			Status:       false,
@@ -87,18 +90,21 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*Sear
 }
 
 // RecheckHotel rechecks a hotel
-func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*RecheckHotelResponse, *MGError) {
+func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (*RecheckHotelResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "RecheckHotel")
 	defer span.End()
 
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
 	// Sanitize the request for logging
-	sanitizedReq, _ := logger.Sanitize(req)
+	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting RecheckHotel request", zap.Any("request", sanitizedReq))
 
 	// Set timeout
 	c.httpClient.SetTimeout(recheckHotelTimeout)
 
-	httpResp, err := c.sendRequest(ctx, req, recheckHotelPath, nil)
+	httpResp, err := c.sendRequest(ctx, internalReq, recheckHotelPath, nil)
 	if err != nil {
 		return nil, &MGError{
 			Status:       false,
@@ -124,8 +130,6 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*Re
 		// Check if it's a valid MGError
 		// Status = false, then it's an error
 		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			sanitizedReq, _ := logger.Sanitize(req)
-			c.logger.Error("RecheckHotel failed", zap.Any("request", sanitizedReq))
 			return nil, &MGError{
 				Status:       false,
 				ErrorCode:    mgError.ErrorCode,
@@ -148,19 +152,22 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*Re
 }
 
 // BookHotel books a hotel
-func (c *Client) BookHotel(ctx context.Context, req BookHotelRequest) (*BookHotelResponse, *MGError) {
+func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookHotelResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "BookHotel")
 	defer span.End()
 
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
 	// Sanitize the request for logging
-	sanitizedReq, _ := logger.Sanitize(req)
+	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting BookHotel request", zap.Any("request", sanitizedReq))
 
 	// Set timeout
 	c.httpClient.SetTimeout(bookHotelTimeout)
 	c.httpClient.SetMaxRetries(0) // No retries for BookHotel
 
-	httpResp, err := c.sendRequest(ctx, req, bookHotelPath, nil)
+	httpResp, err := c.sendRequest(ctx, internalReq, bookHotelPath, nil)
 	if err != nil {
 		return nil, &MGError{
 			Status:       false,
@@ -208,18 +215,21 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequest) (*BookHote
 }
 
 // GetRSVNDetails gets the RSVN details
-func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequest) (*GetRSVNDetailsResponse, *MGError) {
+func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDTO) (*GetRSVNDetailsResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetRSVNDetails")
 	defer span.End()
 
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
 	// Sanitize the request for logging
-	sanitizedReq, _ := logger.Sanitize(req)
+	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetRSVNDetails request", zap.Any("request", sanitizedReq))
 
 	// Set timeout
 	c.httpClient.SetTimeout(getRSVNDetailsTimeout)
 
-	httpResp, err := c.sendRequest(ctx, req, getRSVNDetailsPath, nil)
+	httpResp, err := c.sendRequest(ctx, internalReq, getRSVNDetailsPath, nil)
 	if err != nil {
 		return nil, &MGError{
 			Status:       false,
@@ -267,18 +277,21 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequest) 
 }
 
 // CancelReservation cancels a reservation
-func (c *Client) CancelReservation(ctx context.Context, req CancelReservationRequest) (*CancelReservationResponse, *MGError) {
+func (c *Client) CancelReservation(ctx context.Context, req CancelReservationRequestDTO) (*CancelReservationResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "CancelReservation")
 	defer span.End()
 
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
 	// Sanitize the request for logging
-	sanitizedReq, _ := logger.Sanitize(req)
+	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CancelReservation request", zap.Any("request", sanitizedReq))
 
 	// Set timeout
 	c.httpClient.SetTimeout(cancelReservationTimeout)
 
-	httpResp, err := c.sendRequest(ctx, req, cancelReservationPath, nil)
+	httpResp, err := c.sendRequest(ctx, internalReq, cancelReservationPath, nil)
 	if err != nil {
 		return nil, &MGError{
 			Status:       false,

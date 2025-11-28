@@ -77,12 +77,7 @@ func (suite *EndpointTestSuite) TestSearchHotel_Success() {
 		},
 	}
 
-	req := SearchHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	req := SearchHotelRequestDTO{
 		Nationality:  testNationality,
 		Country:      testCountry,
 		City:         testCity,
@@ -121,12 +116,7 @@ func (suite *EndpointTestSuite) TestRecheckHotel_Success() {
 		},
 	}
 
-	searchReq := SearchHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	searchReq := SearchHotelRequestDTO{
 		Nationality:  testNationality,
 		Country:      testCountry,
 		City:         testCity,
@@ -173,12 +163,7 @@ func (suite *EndpointTestSuite) TestRecheckHotel_Success() {
 		},
 	}
 
-	req := RecheckHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	req := RecheckHotelRequestDTO{
 		SessionID:   sessionID,
 		Nationality: testNationality,
 		Country:     testCountry,
@@ -216,12 +201,7 @@ func (suite *EndpointTestSuite) TestBookHotel_Success() {
 		},
 	}
 
-	searchReq := SearchHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	searchReq := SearchHotelRequestDTO{
 		Nationality:  testNationality,
 		Country:      testCountry,
 		City:         testCity,
@@ -271,12 +251,7 @@ func (suite *EndpointTestSuite) TestBookHotel_Success() {
 		},
 	}
 
-	recheckReq := RecheckHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	recheckReq := RecheckHotelRequestDTO{
 		SessionID:   searchResp.SessionID,
 		Nationality: testNationality,
 		Country:     testCountry,
@@ -338,12 +313,7 @@ func (suite *EndpointTestSuite) TestBookHotel_Success() {
 		},
 	}
 
-	bookReq := BookHotelRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	bookReq := BookHotelRequestDTO{
 		SessionID:       recheckResp.SessionID,
 		AgencyBookingID: testAgencyBookingID,
 		Nationality:     testNationality,
@@ -371,12 +341,7 @@ func (suite *EndpointTestSuite) TestBookHotel_Success() {
 }
 
 func (suite *EndpointTestSuite) TestGetRSVNDetails_Success() {
-	req := GetRSVNDetailsRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	req := GetRSVNDetailsRequestDTO{
 		AgencyBookingID: testAgencyBookingID,
 	}
 
@@ -393,12 +358,7 @@ func (suite *EndpointTestSuite) TestGetRSVNDetails_Success() {
 }
 
 func (suite *EndpointTestSuite) TestCancelReservation_Success() {
-	req := CancelReservationRequest{
-		Login: Credentials{
-			AgencyCode: testAgencyCode,
-			Username:   testUsername,
-			Password:   testPassword,
-		},
+	req := CancelReservationRequestDTO{
 		AgencyBookingID: testAgencyBookingID,
 	}
 
