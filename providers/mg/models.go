@@ -131,10 +131,10 @@ type GetRSVNDetailsResponse struct {
 }
 
 type CancellationReservationCancellationCharges struct {
-	Amount      string `json:"amount"`
-	B2BMarkup   string `json:"b2BMarkup"`
-	GrossAmount string `json:"grossAmount"`
-	Currency    string `json:"currency"`
+	Amount      float64 `json:"amount"`
+	B2BMarkup   float64 `json:"b2BMarkup"`
+	GrossAmount float64 `json:"grossAmount"`
+	Currency    string  `json:"currency"`
 }
 
 type CancellationReservationCancellationPolicies struct {
