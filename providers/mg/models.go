@@ -130,28 +130,6 @@ type GetRSVNDetailsResponse struct {
 	BookingDetail BookingDetails `json:"bookingDetails"`
 }
 
-type CancellationReservationCancellationCharges struct {
-	Amount      float64 `json:"amount"`
-	B2BMarkup   float64 `json:"b2BMarkup"`
-	GrossAmount float64 `json:"grossAmount"`
-	Currency    string  `json:"currency"`
-}
-
-type CancellationReservationCancellationPolicies struct {
-	CancellationCharges CancellationReservationCancellationCharges `json:"cancellationCharges"`
-}
-
-type CancellationReservationBookingDetail struct {
-	MgBookingID          string                                      `json:"mgBookingID"`
-	AgencyBookingID      string                                      `json:"agencyBookingID"`
-	MgBookingVerID       string                                      `json:"mgBookingVersionID"`
-	AgencyVoucherNo      string                                      `json:"agencyVoucherNo"`
-	AgencyVoucherDate    string                                      `json:"agencyVoucherDate"`
-	HotelBookingID       string                                      `json:"hotelBookingID"`
-	Status               string                                      `json:"status"`
-	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
-}
-
 // CancelReservationResponse represents the response structure for canceling a reservation
 type CancelReservationResponse struct {
 	Status        bool                                 `json:"status"`
@@ -379,4 +357,26 @@ type Pax struct {
 	FirstName  string `json:"FirstName"`
 	LastName   string `json:"LastName"`
 	Age        uint   `json:"Age"`
+}
+
+type CancellationReservationCancellationCharges struct {
+	Amount      float64 `json:"amount"`
+	B2BMarkup   float64 `json:"b2BMarkup"`
+	GrossAmount float64 `json:"grossAmount"`
+	Currency    string  `json:"currency"`
+}
+
+type CancellationReservationCancellationPolicies struct {
+	CancellationCharges CancellationReservationCancellationCharges `json:"cancellationCharges"`
+}
+
+type CancellationReservationBookingDetail struct {
+	MgBookingID          string                                      `json:"mgBookingID"`
+	AgencyBookingID      string                                      `json:"agencyBookingID"`
+	MgBookingVerID       string                                      `json:"mgBookingVersionID"`
+	AgencyVoucherNo      string                                      `json:"agencyVoucherNo"`
+	AgencyVoucherDate    string                                      `json:"agencyVoucherDate"`
+	HotelBookingID       string                                      `json:"hotelBookingID"`
+	Status               string                                      `json:"status"`
+	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
 }
