@@ -130,12 +130,34 @@ type GetRSVNDetailsResponse struct {
 	BookingDetail BookingDetails `json:"bookingDetails"`
 }
 
+type CancellationReservationCancellationCharges struct {
+	Amount      string `json:"amount"`
+	B2BMarkup   string `json:"b2BMarkup"`
+	GrossAmount string `json:"grossAmount"`
+	Currency    string `json:"currency"`
+}
+
+type CancellationReservationCancellationPolicies struct {
+	CancellationCharges CancellationReservationCancellationCharges `json:"cancellationCharges"`
+}
+
+type CancellationReservationBookingDetail struct {
+	MgBookingID          string                                      `json:"mgBookingID"`
+	AgencyBookingID      string                                      `json:"agencyBookingID"`
+	MgBookingVerID       string                                      `json:"mgBookingVersionID"`
+	AgencyVoucherNo      string                                      `json:"agencyVoucherNo"`
+	AgencyVoucherDate    string                                      `json:"agencyVoucherDate"`
+	HotelBookingID       string                                      `json:"hotelBookingID"`
+	Status               string                                      `json:"status"`
+	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
+}
+
 // CancelReservationResponse represents the response structure for canceling a reservation
 type CancelReservationResponse struct {
-	Status        bool           `json:"status"`
-	ResponseTime  int            `json:"responseTime"`
-	SessionID     string         `json:"sessionID"`
-	BookingDetail BookingDetails `json:"bookingDetails"`
+	Status        bool                                 `json:"status"`
+	ResponseTime  int                                  `json:"responseTime"`
+	SessionID     string                               `json:"sessionID"`
+	BookingDetail CancellationReservationBookingDetail `json:"bookingDetails"`
 }
 
 // --------------------------------- SHARED TYPES ---------------------------------
