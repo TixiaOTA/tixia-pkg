@@ -174,6 +174,7 @@ type MGError struct {
 	Status       bool        `json:"status"`
 	ErrorCode    MGErrorCode `json:"errorCode"`
 	ErrorMessage string      `json:"errorMessage"`
+	RawBody      *[]byte     `json:"rawBody"`
 }
 
 func (e *MGError) Error() string {

@@ -321,6 +321,7 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 				Status:       false,
 				ErrorCode:    mgError.ErrorCode,
 				ErrorMessage: mgError.ErrorMessage,
+				RawBody:      &bodyBytes,
 			}
 		}
 	}
