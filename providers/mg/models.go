@@ -135,6 +135,8 @@ type CancelReservationResponse struct {
 	Status        bool                                 `json:"status"`
 	ResponseTime  int                                  `json:"responseTime"`
 	SessionID     string                               `json:"sessionID"`
+	ErrorCode     *string                              `json:"errorCode"`
+	ErrorMessage  *string                              `json:"errorMessage"`
 	BookingDetail CancellationReservationBookingDetail `json:"bookingDetails"`
 }
 
