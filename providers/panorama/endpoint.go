@@ -1,0 +1,205 @@
+package panorama
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"time"
+
+	"github.com/TixiaOTA/tixia-pkg/logger"
+	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
+	"go.uber.org/zap"
+)
+
+const (
+	sessionPath        = "/session"
+	bookingAirlinePath = "/booking/airline"
+)
+
+const (
+	signInTimeout     = 10 * time.Second
+	getBookingTimeout = 10 * time.Second
+	cancelTimeout     = 10 * time.Second
+)
+
+// SignIn signs in to the Panorama API
+func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "SignIn")
+	defer span.End()
+
+	// Convert the request to the internal model
+	internalReq := c.config.Credentials // Sign In Request is the same as the credentials
+
+	// Sanitize the request for logging
+	sanitizedReq, _ := logger.Sanitize(internalReq)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SignIn request", zap.Any("request", sanitizedReq))
+
+	// Set timeout
+	c.httpClient.SetTimeout(signInTimeout)
+
+	// Add header
+	headers := map[string]string{
+		"Action": string(SignIn),
+	}
+
+	httpResp, err := c.sendRequest(ctx, internalReq, sessionPath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	// Try to unmarshal as PanoramaError first
+	var panoramaError PanoramaError
+	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
+		// Check if it's a valid PanoramaError
+		// Status = false, then it's an error
+		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
+			return nil, &PanoramaError{
+				Result: PanoramaErrorResult{
+					BasicPanoramaResult: BasicPanoramaResult{
+						ErrorCode: panoramaError.Result.ErrorCode,
+						ErrorMsg:  panoramaError.Result.ErrorMsg,
+					},
+					Response:           panoramaError.Result.Response,
+					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
+				},
+			}
+		}
+	}
+
+	// If not an APIError, unmarshal as SignInResponse
+	var resp SignInResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetBooking gets a booking by order number
+func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*GetBookingResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetBooking")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetBooking request", zap.Any("request", req))
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	// Set timeout
+	c.httpClient.SetTimeout(getBookingTimeout)
+
+	// Add header
+	headers := map[string]string{
+		"Action":    string(GetBooking),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	// Try to unmarshal as PanoramaError first
+	var panoramaError PanoramaError
+	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
+		// Check if it's a valid PanoramaError
+		// Status = false, then it's an error
+		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
+			return nil, &PanoramaError{
+				Result: PanoramaErrorResult{
+					BasicPanoramaResult: BasicPanoramaResult{
+						ErrorCode: panoramaError.Result.ErrorCode,
+						ErrorMsg:  panoramaError.Result.ErrorMsg,
+					},
+					Response:           panoramaError.Result.Response,
+					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
+				},
+			}
+		}
+	}
+
+	// If not an APIError, unmarshal as GetBookingResponse
+	var resp GetBookingResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// CancelVoid cancels a booking by order number with a booking state of "booked" to state of "void"
+func (c *Client) CancelVoid(ctx context.Context, req CancelRequestDTO) (*GetBookingResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "CancelVoid")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CancelVoid request", zap.Any("request", req))
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	// Set timeout
+	c.httpClient.SetTimeout(cancelTimeout)
+
+	// Add header
+	headers := map[string]string{
+		"Action":    string(Cancel),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	// Try to unmarshal as PanoramaError first
+	var panoramaError PanoramaError
+	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
+		// Check if it's a valid PanoramaError
+		// Status = false, then it's an error
+		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
+			return nil, &PanoramaError{
+				Result: PanoramaErrorResult{
+					BasicPanoramaResult: BasicPanoramaResult{
+						ErrorCode: panoramaError.Result.ErrorCode,
+						ErrorMsg:  panoramaError.Result.ErrorMsg,
+					},
+					Response:           panoramaError.Result.Response,
+					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
+				},
+			}
+		}
+	}
+
+	// If not an APIError, unmarshal as GetBookingResponse
+	var resp GetBookingResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
