@@ -129,7 +129,7 @@ func (suite *EndpointTestSuite) TestCancel_Success() {
 	suite.NotEmpty(signInResp.Result.Response.Signature)
 
 	// Now test GetBooking with the obtained signature
-	req := CancelRequestDTO{
+	req := CancelVoidRequestDTO{
 		Signature:   signInResp.Result.Response.Signature,
 		OrderNumber: testOrderNumber,
 	}

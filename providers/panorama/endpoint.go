@@ -2,7 +2,6 @@ package panorama
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"time"
 
@@ -54,28 +53,11 @@ func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *PanoramaError) {
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 
-	// Try to unmarshal as PanoramaError first
-	var panoramaError PanoramaError
-	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
-		// Check if it's a valid PanoramaError
-		// Status = false, then it's an error
-		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
-			return nil, &PanoramaError{
-				Result: PanoramaErrorResult{
-					BasicPanoramaResult: BasicPanoramaResult{
-						ErrorCode: panoramaError.Result.ErrorCode,
-						ErrorMsg:  panoramaError.Result.ErrorMsg,
-					},
-					Response:           panoramaError.Result.Response,
-					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
-				},
-			}
-		}
-	}
-
-	// If not an APIError, unmarshal as SignInResponse
 	var resp SignInResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 
@@ -115,28 +97,11 @@ func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*Get
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 
-	// Try to unmarshal as PanoramaError first
-	var panoramaError PanoramaError
-	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
-		// Check if it's a valid PanoramaError
-		// Status = false, then it's an error
-		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
-			return nil, &PanoramaError{
-				Result: PanoramaErrorResult{
-					BasicPanoramaResult: BasicPanoramaResult{
-						ErrorCode: panoramaError.Result.ErrorCode,
-						ErrorMsg:  panoramaError.Result.ErrorMsg,
-					},
-					Response:           panoramaError.Result.Response,
-					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
-				},
-			}
-		}
-	}
-
-	// If not an APIError, unmarshal as GetBookingResponse
 	var resp GetBookingResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 
@@ -144,7 +109,7 @@ func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*Get
 }
 
 // CancelVoid cancels a booking by order number with a booking state of "booked" to state of "void"
-func (c *Client) CancelVoid(ctx context.Context, req CancelRequestDTO) (*GetBookingResponse, *PanoramaError) {
+func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequestDTO) (*GetBookingResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "CancelVoid")
 	defer span.End()
 
@@ -176,28 +141,11 @@ func (c *Client) CancelVoid(ctx context.Context, req CancelRequestDTO) (*GetBook
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 
-	// Try to unmarshal as PanoramaError first
-	var panoramaError PanoramaError
-	if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
-		// Check if it's a valid PanoramaError
-		// Status = false, then it's an error
-		if panoramaError.Result.ErrorCode > 0 || panoramaError.Result.ErrorMsg == "" {
-			return nil, &PanoramaError{
-				Result: PanoramaErrorResult{
-					BasicPanoramaResult: BasicPanoramaResult{
-						ErrorCode: panoramaError.Result.ErrorCode,
-						ErrorMsg:  panoramaError.Result.ErrorMsg,
-					},
-					Response:           panoramaError.Result.Response,
-					ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
-				},
-			}
-		}
-	}
-
-	// If not an APIError, unmarshal as GetBookingResponse
 	var resp GetBookingResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
 

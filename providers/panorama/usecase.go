@@ -34,7 +34,7 @@ type CancelBookingResult struct {
 type panoramaClient interface {
 	SignIn(ctx context.Context) (*SignInResponse, *PanoramaError)
 	GetBooking(ctx context.Context, req GetBookingRequestDTO) (*GetBookingResponse, *PanoramaError)
-	CancelVoid(ctx context.Context, req CancelRequestDTO) (*GetBookingResponse, *PanoramaError)
+	CancelVoid(ctx context.Context, req CancelVoidRequestDTO) (*GetBookingResponse, *PanoramaError)
 }
 
 type Usecase struct {
@@ -83,14 +83,14 @@ func (u *Usecase) CancelBooking(ctx context.Context, req CancelBookingRequest) (
 
 		// Check if booking state is "booked"
 		if getBookingResp.Result.Response.State != "booked" {
-			result.Message = "Booking state is not 'booked', but '%s', skipping cancel"
+			result.Message = "Booking state is not 'booked', skipping cancel"
 			result.State = getBookingResp.Result.Response.State
 			results = append(results, result)
 			continue
 		}
 
 		// Cancel the booking
-		cancelResp, err := u.client.CancelVoid(ctx, CancelRequestDTO{
+		cancelResp, err := u.client.CancelVoid(ctx, CancelVoidRequestDTO{
 			Signature:   signature,
 			OrderNumber: orderNumber,
 		})
