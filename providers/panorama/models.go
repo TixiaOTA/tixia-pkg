@@ -34,13 +34,13 @@ func (r *GetBookingRequestDTO) Validate() error {
 	return nil
 }
 
-// CancelRequestDTO is the request structure for GetBooking
-type CancelRequestDTO struct {
+// CancelVoidRequestDTO is the request structure for CancelVoid
+type CancelVoidRequestDTO struct {
 	Signature   string `json:"signature"`
 	OrderNumber string `json:"order_number"`
 }
 
-func (r *CancelRequestDTO) Validate() error {
+func (r *CancelVoidRequestDTO) Validate() error {
 	if r.Signature == "" {
 		return errors.New("signature is required")
 	}
