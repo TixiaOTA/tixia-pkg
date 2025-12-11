@@ -127,7 +127,8 @@ type GetRSVNListResponse struct {
 	ResponseTime       int    `json:"responseTime"`
 	SessionID          string `json:"sessionID"`
 	ReservationDetails []struct {
-		MGBookingID string `json:"mgBookingID"`
+		MGBookingID     string `json:"mgBookingID"`
+		AgencyBookingID string `json:"agencyBookingID"`
 	}
 }
 
