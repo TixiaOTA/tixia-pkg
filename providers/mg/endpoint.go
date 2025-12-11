@@ -345,9 +345,12 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetRSVNList")
 	defer span.End()
 
-	// set 1 to get by Booking date and 2 to get by Check-in date.
-	if req.DateType == "" {
-		req.DateType = "1"
+	if err := req.Validate(); err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    BadRequestError,
+			ErrorMessage: err.Error(),
+		}
 	}
 
 	// Convert the request to the internal model

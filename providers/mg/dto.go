@@ -1,5 +1,7 @@
 package mg
 
+import "errors"
+
 // --------------------------------- REQUESTS ---------------------------------
 
 type SearchHotelRequestDTO struct {
@@ -143,6 +145,14 @@ type GetRSVNListRequestDTO struct {
 	Date     string `json:"Date"`
 	DateType string `json:"DateType"`
 	Status   string `json:"Status"`
+}
+
+func (dto *GetRSVNListRequestDTO) Validate() error {
+	if dto.DateType == "" {
+		return errors.New("date type is required")
+	}
+
+	return nil
 }
 
 func (dto *GetRSVNListRequestDTO) ToInternalModel(credentials Credentials) GetRSVNListRequest {

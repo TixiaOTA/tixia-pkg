@@ -6,6 +6,22 @@ import (
 	"fmt"
 )
 
+// The type of the date in which you would like to get reservation list
+type MGReservationListDateTypes string
+type MGReservationListStatuses string
+
+const (
+	BookingDateType MGReservationListDateTypes = "1"
+	CheckinDateType MGReservationListDateTypes = "2"
+
+	ConfirmedStatus          MGReservationListStatuses = "CONF"
+	ReservedStatus           MGReservationListStatuses = "RESERVED"
+	NotConfirmedStatus       MGReservationListStatuses = "NOTCONF"
+	CancelledStatus          MGReservationListStatuses = "CANCEL"
+	CancelledConfirmedStatus MGReservationListStatuses = "CANCELCONF"
+	CancelledChargeStatus    MGReservationListStatuses = "CANCELCHARGE"
+)
+
 // --------------------------------- REQUESTS ---------------------------------
 
 type SearchHotelRequest struct {
