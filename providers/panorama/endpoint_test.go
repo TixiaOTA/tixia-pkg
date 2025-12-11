@@ -102,7 +102,7 @@ func (suite *EndpointTestSuite) TestGetBooking_Success() {
 	suite.NotEmpty(signInResp.Result.Response.Signature)
 
 	// Now test GetBooking with the obtained signature
-	req := GetBookingRequestDTO{
+	req := GetBookingRequest{
 		Signature:   signInResp.Result.Response.Signature,
 		OrderNumber: testOrderNumber,
 	}
@@ -129,7 +129,7 @@ func (suite *EndpointTestSuite) TestCancel_Success() {
 	suite.NotEmpty(signInResp.Result.Response.Signature)
 
 	// Now test GetBooking with the obtained signature
-	req := CancelVoidRequestDTO{
+	req := CancelVoidRequest{
 		Signature:   signInResp.Result.Response.Signature,
 		OrderNumber: testOrderNumber,
 	}

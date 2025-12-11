@@ -65,7 +65,7 @@ func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *PanoramaError) {
 }
 
 // GetBooking gets a booking by order number
-func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*GetBookingResponse, *PanoramaError) {
+func (c *Client) GetBooking(ctx context.Context, req GetBookingRequest) (*GetBookingResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetBooking")
 	defer span.End()
 
@@ -109,7 +109,7 @@ func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*Get
 }
 
 // CancelVoid cancels a booking by order number with a booking state of "booked" to state of "void"
-func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequestDTO) (*GetBookingResponse, *PanoramaError) {
+func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBookingResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "CancelVoid")
 	defer span.End()
 

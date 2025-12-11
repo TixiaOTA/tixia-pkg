@@ -33,8 +33,8 @@ type CancelBookingResult struct {
 // panoramaClient defines the interface for client methods used by the usecase
 type panoramaClient interface {
 	SignIn(ctx context.Context) (*SignInResponse, *PanoramaError)
-	GetBooking(ctx context.Context, req GetBookingRequestDTO) (*GetBookingResponse, *PanoramaError)
-	CancelVoid(ctx context.Context, req CancelVoidRequestDTO) (*GetBookingResponse, *PanoramaError)
+	GetBooking(ctx context.Context, req GetBookingRequest) (*GetBookingResponse, *PanoramaError)
+	CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBookingResponse, *PanoramaError)
 }
 
 type Usecase struct {
@@ -71,7 +71,7 @@ func (u *Usecase) CancelBooking(ctx context.Context, req CancelBookingRequest) (
 		}
 
 		// Get booking details
-		getBookingResp, err := u.client.GetBooking(ctx, GetBookingRequestDTO{
+		getBookingResp, err := u.client.GetBooking(ctx, GetBookingRequest{
 			Signature:   signature,
 			OrderNumber: orderNumber,
 		})
@@ -90,7 +90,7 @@ func (u *Usecase) CancelBooking(ctx context.Context, req CancelBookingRequest) (
 		}
 
 		// Cancel the booking
-		cancelResp, err := u.client.CancelVoid(ctx, CancelVoidRequestDTO{
+		cancelResp, err := u.client.CancelVoid(ctx, CancelVoidRequest{
 			Signature:   signature,
 			OrderNumber: orderNumber,
 		})

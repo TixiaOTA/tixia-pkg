@@ -18,13 +18,13 @@ const (
 
 // --------------------------------- REQUESTS ---------------------------------
 
-// GetBookingRequestDTO is the request structure for GetBooking
-type GetBookingRequestDTO struct {
+// GetBookingRequest is the request structure for GetBooking
+type GetBookingRequest struct {
 	Signature   string `json:"signature"`
 	OrderNumber string `json:"order_number"`
 }
 
-func (r *GetBookingRequestDTO) Validate() error {
+func (r *GetBookingRequest) Validate() error {
 	if r.Signature == "" {
 		return errors.New("signature is required")
 	}
@@ -34,13 +34,13 @@ func (r *GetBookingRequestDTO) Validate() error {
 	return nil
 }
 
-// CancelVoidRequestDTO is the request structure for CancelVoid
-type CancelVoidRequestDTO struct {
+// CancelVoidRequest is the request structure for CancelVoid
+type CancelVoidRequest struct {
 	Signature   string `json:"signature"`
 	OrderNumber string `json:"order_number"`
 }
 
-func (r *CancelVoidRequestDTO) Validate() error {
+func (r *CancelVoidRequest) Validate() error {
 	if r.Signature == "" {
 		return errors.New("signature is required")
 	}
