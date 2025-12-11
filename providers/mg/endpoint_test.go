@@ -378,8 +378,8 @@ func (suite *EndpointTestSuite) TestCancelReservation_Success() {
 func (suite *EndpointTestSuite) TestGetRSVNList_Success() {
 	req := GetRSVNListRequestDTO{
 		Date:     testReservationDate,
-		Status:   "CONF",
-		DateType: "1",
+		DateType: BookingDateType,
+		Status:   ConfirmedStatus,
 	}
 
 	resp, err := suite.client.GetRSVNList(context.Background(), req)
@@ -388,4 +388,22 @@ func (suite *EndpointTestSuite) TestGetRSVNList_Success() {
 	suite.NotNil(resp)
 	suite.True(resp.Status)
 	suite.NotEmpty(resp.SessionID)
+	suite.NotEmpty(resp.ReservationDetails)
+
+	fmt.Printf("GetRSVNList successful - Agency Booking ID: %s, MG Booking ID: %s, Status: %s\n",
+		resp.ReservationDetails[0].AgencyBookingID, resp.ReservationDetails[0].MGBookingID, resp.ReservationDetails[0].Status)
+}
+
+func (suite *EndpointTestSuite) TestCancelReservation_Error() {
+	req := CancelReservationRequestDTO{
+		AgencyBookingID: "123", // Not a valid agency booking ID
+	}
+
+	resp, err := suite.client.CancelReservation(context.Background(), req)
+
+	suite.NotNil(err)
+	suite.Nil(resp)
+	suite.NotNil(err.RawBody)
+
+	fmt.Printf("CancelReservation error - Error: %v, RawBody: %s\n", err.Error(), err.RawBody)
 }

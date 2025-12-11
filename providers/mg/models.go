@@ -6,8 +6,12 @@ import (
 	"fmt"
 )
 
-// The type of the date in which you would like to get reservation list
+// --------------------------------- CONSTANTS ---------------------------------
+
+// MGReservationListDateTypes is the date type of the reservation list
 type MGReservationListDateTypes string
+
+// MGReservationListStatuses is the status of the reservation list
 type MGReservationListStatuses string
 
 const (
@@ -96,6 +100,13 @@ type CancelReservationRequest struct {
 	AgencyBookingID string      `json:"AgencyBookingID"` // Tixia generated booking ID
 }
 
+type GetRSVNListRequest struct {
+	Login    Credentials                `json:"Login"`
+	Date     string                     `json:"Date"`
+	DateType MGReservationListDateTypes `json:"DateType"`
+	Status   MGReservationListStatuses  `json:"Status,omitempty"`
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -145,6 +156,7 @@ type GetRSVNListResponse struct {
 	ReservationDetails []struct {
 		MGBookingID     string `json:"mgBookingID"`
 		AgencyBookingID string `json:"agencyBookingID"`
+		Status          string `json:"status"`
 	}
 }
 
@@ -408,11 +420,4 @@ type CancellationReservationBookingDetail struct {
 	HotelBookingID       string                                      `json:"hotelBookingID"`
 	Status               string                                      `json:"status"`
 	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
-}
-
-type GetRSVNListRequest struct {
-	Login    Credentials `json:"Login"`
-	Date     string      `json:"Date"`
-	DateType string      `json:"DateType"`
-	Status   string      `json:"Status,omitempty"`
 }

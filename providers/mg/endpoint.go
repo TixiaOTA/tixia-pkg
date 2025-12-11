@@ -2,7 +2,6 @@ package mg
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"time"
 
@@ -64,23 +63,12 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*S
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as SearchHotelResponse
 	var resp SearchHotelResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -126,23 +114,12 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as RecheckHotelResponse
 	var resp RecheckHotelResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -189,23 +166,12 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookH
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as BookHotelResponse
 	var resp BookHotelResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -251,23 +217,12 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDT
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as GetRSVNDetailsResponse
 	var resp GetRSVNDetailsResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -313,24 +268,12 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-				RawBody:      &bodyBytes,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as CancelReservationResponse
 	var resp CancelReservationResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -383,23 +326,12 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 		}
 	}
 
-	// Try to unmarshal as MGError first
-	var mgError MGError
-	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
-		// Check if it's a valid MGError
-		// Status = false, then it's an error
-		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
-			return nil, &MGError{
-				Status:       false,
-				ErrorCode:    mgError.ErrorCode,
-				ErrorMessage: mgError.ErrorMessage,
-			}
-		}
-	}
-
-	// If not an MGError, unmarshal as GetRSVNDetailsResponse
 	var resp GetRSVNListResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,

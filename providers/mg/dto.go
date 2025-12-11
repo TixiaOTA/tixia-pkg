@@ -142,9 +142,9 @@ func (dto *CancelReservationRequestDTO) ToInternalModel(credentials Credentials)
 }
 
 type GetRSVNListRequestDTO struct {
-	Date     string `json:"Date"`
-	DateType string `json:"DateType"`
-	Status   string `json:"Status"`
+	Date     string                     `json:"Date"` // Format: YYYY-MM-DD
+	DateType MGReservationListDateTypes `json:"DateType"`
+	Status   MGReservationListStatuses  `json:"Status"` // Optional
 }
 
 func (dto *GetRSVNListRequestDTO) Validate() error {
