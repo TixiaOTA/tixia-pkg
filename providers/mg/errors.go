@@ -4,6 +4,8 @@ package mg
 type MGErrorCode string
 
 const (
+	BadRequestError MGErrorCode = "BAD_REQUEST_ERROR"
+
 	// Internal server error.
 	// Not an MG error code, but used as a fallback.
 	// Error likely caused by network issues or server issues.
