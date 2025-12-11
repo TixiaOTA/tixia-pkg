@@ -16,8 +16,8 @@ const (
 	recheckHotelPath      = "/RecheckHotel"
 	bookHotelPath         = "/BookHotel"
 	getRSVNDetailsPath    = "/GetRSVNDetails"
-	getRSVNListPath       = "/GetRSVNList"
 	cancelReservationPath = "/CancelReservation"
+	getRSVNListPath       = "/GetRSVNList"
 )
 
 const (
@@ -25,8 +25,8 @@ const (
 	recheckHotelTimeout      = 10 * time.Second
 	bookHotelTimeout         = 120 * time.Second
 	getRSVNDetailsTimeout    = 10 * time.Second
-	getRSVNListTimeout       = 10 * time.Second
 	cancelReservationTimeout = 10 * time.Second
+	getRSVNListTimeout       = 10 * time.Second
 )
 
 // SearchHotel searches for hotels
@@ -345,6 +345,7 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetRSVNList")
 	defer span.End()
 
+	// set 1 to get by Booking date and 2 to get by Check-in date.
 	if req.DateType == "" {
 		req.DateType = "1"
 	}
