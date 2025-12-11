@@ -16,6 +16,7 @@ const (
 	recheckHotelPath      = "/RecheckHotel"
 	bookHotelPath         = "/BookHotel"
 	getRSVNDetailsPath    = "/GetRSVNDetails"
+	getRSVNListPath       = "/GetRSVNList"
 	cancelReservationPath = "/CancelReservation"
 )
 
@@ -24,6 +25,7 @@ const (
 	recheckHotelTimeout      = 10 * time.Second
 	bookHotelTimeout         = 120 * time.Second
 	getRSVNDetailsTimeout    = 10 * time.Second
+	getRSVNListTimeout       = 10 * time.Second
 	cancelReservationTimeout = 10 * time.Second
 )
 
@@ -328,6 +330,71 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 
 	// If not an MGError, unmarshal as CancelReservationResponse
 	var resp CancelReservationResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	return &resp, nil
+}
+
+func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*GetRSVNListResponse, *MGError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetRSVNList")
+	defer span.End()
+
+	if req.DateType == "" {
+		req.DateType = "1"
+	}
+
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
+	// Sanitize the request for logging
+	sanitizedReq, _ := logger.Sanitize(internalReq)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetRSVNList request", zap.Any("request", sanitizedReq))
+
+	// Set timeout
+	c.httpClient.SetTimeout(getRSVNListTimeout)
+
+	httpResp, err := c.sendRequest(ctx, internalReq, getRSVNListPath, nil)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	// Try to unmarshal as MGError first
+	var mgError MGError
+	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
+		// Check if it's a valid MGError
+		// Status = false, then it's an error
+		if !mgError.Status || mgError.ErrorCode != "" || mgError.ErrorMessage != "" {
+			return nil, &MGError{
+				Status:       false,
+				ErrorCode:    mgError.ErrorCode,
+				ErrorMessage: mgError.ErrorMessage,
+			}
+		}
+	}
+
+	// If not an MGError, unmarshal as GetRSVNDetailsResponse
+	var resp GetRSVNListResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
 		return nil, &MGError{
 			Status:       false,

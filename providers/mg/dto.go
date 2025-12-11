@@ -138,3 +138,18 @@ func (dto *CancelReservationRequestDTO) ToInternalModel(credentials Credentials)
 		AgencyBookingID: dto.AgencyBookingID,
 	}
 }
+
+type GetRSVNListRequestDTO struct {
+	Date     string `json:"Date"`
+	DateType string `json:"DateType"`
+	Status   string `json:"Status"`
+}
+
+func (dto *GetRSVNListRequestDTO) ToInternalModel(credentials Credentials) GetRSVNListRequest {
+	return GetRSVNListRequest{
+		Login:    credentials,
+		Date:     dto.Date,
+		DateType: dto.DateType,
+		Status:   dto.Status,
+	}
+}

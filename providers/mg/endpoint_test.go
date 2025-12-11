@@ -36,6 +36,7 @@ var (
 		ExtraBed:   false,
 	}
 	testAgencyBookingID = "TIXIA-BOOKING-12345"
+	testReservationDate = "2025-11-12"
 )
 
 type EndpointTestSuite struct {
@@ -356,7 +357,6 @@ func (suite *EndpointTestSuite) TestGetRSVNDetails_Success() {
 	fmt.Printf("GetRSVNDetails successful - MG Booking ID: %s, Status: %s\n",
 		resp.BookingDetail.MgBookingID, resp.BookingDetail.Status)
 }
-
 func (suite *EndpointTestSuite) TestCancelReservation_Success() {
 	req := CancelReservationRequestDTO{
 		AgencyBookingID: testAgencyBookingID,
@@ -373,4 +373,19 @@ func (suite *EndpointTestSuite) TestCancelReservation_Success() {
 	suite.Equal(testAgencyBookingID, resp.BookingDetail.AgencyBookingID)
 	fmt.Printf("CancelReservation successful - MG Booking ID: %s, Agency Booking ID: %s, Status: %s\n",
 		resp.BookingDetail.MgBookingID, resp.BookingDetail.AgencyBookingID, resp.BookingDetail.Status)
+}
+
+func (suite *EndpointTestSuite) TestGetRSVNList_Success() {
+	req := GetRSVNListRequestDTO{
+		Date:     testReservationDate,
+		Status:   "CONF",
+		DateType: "1",
+	}
+
+	resp, err := suite.client.GetRSVNList(context.Background(), req)
+
+	suite.Nil(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.NotEmpty(resp.SessionID)
 }
