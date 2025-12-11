@@ -122,6 +122,15 @@ type BookHotelResponse struct {
 	BookingDetail BookingDetails `json:"bookingDetails"`
 }
 
+type GetRSVNListResponse struct {
+	Status             bool   `json:"status"`
+	ResponseTime       int    `json:"responseTime"`
+	SessionID          string `json:"sessionID"`
+	ReservationDetails []struct {
+		MGBookingID string `json:"mgBookingID"`
+	}
+}
+
 // GetRSVNDetailsResponse represents the response structure for getting the RSVN details
 type GetRSVNDetailsResponse struct {
 	Status        bool           `json:"status"`
@@ -382,4 +391,11 @@ type CancellationReservationBookingDetail struct {
 	HotelBookingID       string                                      `json:"hotelBookingID"`
 	Status               string                                      `json:"status"`
 	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
+}
+
+type GetRSVNListRequest struct {
+	Login    Credentials `json:"Login"`
+	Date     string      `json:"Date"`
+	DateType string      `json:"DateType"`
+	Status   string      `json:"Status,omitempty"`
 }
