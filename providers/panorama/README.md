@@ -12,6 +12,22 @@ A Go client library for interacting with the Panorama API, providing airline boo
 - **Observability**: Built-in OpenTelemetry tracing and structured logging
 - **Retry Logic**: Configurable HTTP client with automatic retries
 
+## Package Structure
+
+```
+providers/panorama/
+├── README.md
+├── client.go
+├── endpoint.go
+├── endpoint_test.go
+├── errors.go
+├── helpers.go
+├── models.go
+├── usecase.go
+├── usecase_model.go
+└── usecase_test.go
+```
+
 ## Installation
 
 ```bash
@@ -65,7 +81,7 @@ func main() {
     signature := signInResp.Result.Response.Signature
 
     // Get booking details
-    bookingResp, err := client.GetBooking(ctx, panorama.GetBookingRequestDTO{
+    bookingResp, err := client.GetBooking(ctx, panorama.GetBookingRequest{
         Signature:   signature,
         OrderNumber: "ORDER123",
     })
@@ -140,13 +156,13 @@ type SignInResponse struct {
 Retrieves booking details by order number.
 
 ```go
-func (c *Client) GetBooking(ctx context.Context, req GetBookingRequestDTO) (*GetBookingResponse, *PanoramaError)
+func (c *Client) GetBooking(ctx context.Context, req GetBookingRequest) (*GetBookingResponse, *PanoramaError)
 ```
 
 **Request:**
 
 ```go
-type GetBookingRequestDTO struct {
+type GetBookingRequest struct {
     Signature   string `json:"signature"`    // From SignIn response
     OrderNumber string `json:"order_number"` // Booking order number
 }
@@ -168,13 +184,13 @@ type GetBookingResponse struct {
 Cancels a booking by changing its state from "booked" to "void".
 
 ```go
-func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequestDTO) (*GetBookingResponse, *PanoramaError)
+func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBookingResponse, *PanoramaError)
 ```
 
 **Request:**
 
 ```go
-type CancelVoidRequestDTO struct {
+type CancelVoidRequest struct {
     Signature   string `json:"signature"`    // From SignIn response
     OrderNumber string `json:"order_number"` // Booking order number
 }
@@ -182,11 +198,26 @@ type CancelVoidRequestDTO struct {
 
 ## High-Level Usecase
 
-The package provides a `Usecase` wrapper for complex operations:
+The package provides a `Usecase` wrapper for complex operations that combine multiple API calls:
+
+### Creating a Usecase Instance
+
+```go
+usecase := panorama.NewUsecase(client)
+```
 
 ### CancelBooking
 
 Cancels multiple bookings in bulk, handling the complete workflow including authentication, state validation, and cancellation.
+
+**Workflow:**
+
+1. Authenticates with the Panorama API (SignIn)
+2. For each order number:
+   - Retrieves booking details (GetBooking)
+   - Validates booking state (must be "booked")
+   - Cancels the booking if valid (CancelVoid)
+   - Returns the result for each booking
 
 ```go
 func (u *Usecase) CancelBooking(ctx context.Context, req CancelBookingRequest) (*CancelBookingResponse, error)
@@ -211,7 +242,7 @@ type CancelBookingResult struct {
     OrderNumber string `json:"order_number"`
     Success     bool   `json:"success"`
     Message     string `json:"message"`
-    State       string `json:"state,omitempty"`
+    State       string `json:"state,omitempty"` // Current/final state of the booking
 }
 ```
 
@@ -221,20 +252,120 @@ type CancelBookingResult struct {
 usecase := panorama.NewUsecase(client)
 
 resp, err := usecase.CancelBooking(ctx, panorama.CancelBookingRequest{
-    OrderNumbers: []string{"ORDER123", "ORDER456"},
+    OrderNumbers: []string{"ORDER123", "ORDER456", "ORDER789"},
 })
 if err != nil {
-    log.Fatal(err)
+    log.Printf("Failed to process bulk cancellation: %v", err)
+    return
 }
 
 for _, result := range resp.Results {
     if result.Success {
-        log.Printf("Successfully canceled booking %s", result.OrderNumber)
+        log.Printf("✓ Successfully canceled booking %s (final state: %s)", result.OrderNumber, result.State)
     } else {
-        log.Printf("Failed to cancel booking %s: %s", result.OrderNumber, result.Message)
+        log.Printf("✗ Failed to cancel booking %s: %s (current state: %s)", result.OrderNumber, result.Message, result.State)
     }
 }
 ```
+
+**Notes:**
+
+- Only bookings with state "booked" can be canceled
+- Authentication is handled automatically for each batch
+- Results are returned for all bookings, regardless of success/failure
+- The operation is atomic per booking but not across multiple bookings
+
+## API Reference
+
+### Client Methods
+
+#### SignIn
+
+Authenticates with the Panorama API and returns a signature for subsequent requests.
+
+```go
+func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *PanoramaError)
+```
+
+**Response:**
+
+```go
+type SignInResponse struct {
+    Result struct {
+        BasicPanoramaResult
+        Response struct {
+            Signature string `json:"signature"`
+        } `json:"response"`
+    } `json:"result"`
+}
+```
+
+**Timeout:** 10 seconds
+
+#### GetBooking
+
+Retrieves booking details by order number.
+
+```go
+func (c *Client) GetBooking(ctx context.Context, req GetBookingRequest) (*GetBookingResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `OrderNumber` (string, required): Booking order number to retrieve
+
+**Response:**
+
+```go
+type GetBookingResponse struct {
+    Result struct {
+        BasicPanoramaResult
+        Response BookingResponse `json:"response"`
+    } `json:"result"`
+}
+```
+
+**Timeout:** 10 seconds
+
+#### CancelVoid
+
+Cancels a booking by changing its state from "booked" to "void".
+
+```go
+func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBookingResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `OrderNumber` (string, required): Booking order number to cancel
+
+**Response:** Returns the updated booking details after cancellation.
+
+**Timeout:** 10 seconds
+
+### Usecase Methods
+
+#### CancelBooking
+
+Cancels multiple bookings in bulk with automatic authentication and state validation.
+
+```go
+func (u *Usecase) CancelBooking(ctx context.Context, req CancelBookingRequest) (*CancelBookingResponse, error)
+```
+
+**Request Parameters:**
+
+- `OrderNumbers` ([]string, required): List of booking order numbers to cancel
+
+**Response:**
+
+- `Results` ([]CancelBookingResult): Individual results for each booking cancellation attempt
+  - `OrderNumber` (string): The booking order number
+  - `Success` (bool): Whether the cancellation was successful
+  - `Message` (string): Success message or error description
+  - `State` (string): Final state of the booking after the operation
 
 ## Error Handling
 

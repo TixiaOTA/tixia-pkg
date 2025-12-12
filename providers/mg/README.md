@@ -5,6 +5,7 @@ A Go client library for interacting with the MG Hotel Booking API. This package 
 ## Overview
 
 The MG package enables you to:
+
 - Search for hotels with availability and pricing
 - Recheck hotel availability and pricing using session IDs
 - Book hotels with guest details
@@ -60,7 +61,17 @@ if err != nil {
   - `AgencyCode` (string, required): Agency code for authentication
   - `Username` (string, required): Username for authentication
   - `Password` (string, required): Password for authentication
-- **RetryConfig** (*client.RetryConfig, optional): Retry configuration for HTTP requests. Defaults to 3 retries with exponential backoff (5s initial, 15s max, 2x multiplier)
+- **RetryConfig** (\*client.RetryConfig, optional): Retry configuration for HTTP requests. Defaults to 3 retries with exponential backoff (5s initial, 15s max, 2x multiplier)
+
+## DTO Pattern
+
+This package uses Data Transfer Objects (DTOs) to separate external API request structures from internal business models. DTOs are defined in `dto.go` and provide:
+
+- **API-specific serialization**: DTOs handle JSON marshaling/unmarshaling for API communication
+- **Conversion methods**: Each DTO includes a `ToInternalModel()` method to convert to internal types
+- **Lightweight structures**: DTOs contain only the fields needed for API requests
+
+When calling client methods, use the DTO types (e.g., `SearchHotelRequestDTO`) instead of the internal model types. The client automatically converts DTOs to internal models for processing.
 
 ## Usage
 
@@ -71,12 +82,7 @@ Search for hotels with availability and pricing information:
 ```go
 ctx := context.Background()
 
-req := mg.SearchHotelRequest{
-    Login: mg.Credentials{
-        AgencyCode: "your-agency-code",
-        Username:   "your-username",
-        Password:   "your-password",
-    },
+req := mg.SearchHotelRequestDTO{
     Nationality: "US",
     Country:     "US",
     City:        "New York",
@@ -122,12 +128,7 @@ for _, hotel := range response.Hotels.Hotel {
 Recheck hotel availability and pricing using a session ID from a previous search:
 
 ```go
-req := mg.RecheckHotelRequest{
-    Login: mg.Credentials{
-        AgencyCode: "your-agency-code",
-        Username:   "your-username",
-        Password:   "your-password",
-    },
+req := mg.RecheckHotelRequestDTO{
     SessionID:   "session-id-from-search", // From SearchHotel response
     Nationality: "US",
     Country:     "US",
@@ -174,12 +175,7 @@ fmt.Printf("Hotel: %s\n", response.Hotels.Hotel.Name)
 Book a hotel with guest details:
 
 ```go
-req := mg.BookHotelRequest{
-    Login: mg.Credentials{
-        AgencyCode: "your-agency-code",
-        Username:   "your-username",
-        Password:   "your-password",
-    },
+req := mg.BookHotelRequestDTO{
     SessionID:       "session-id-from-search",
     AgencyBookingID: "TIXIA-BOOKING-12345", // Your generated booking ID
     Nationality:     "US",
@@ -248,12 +244,7 @@ fmt.Printf("Agency Booking ID: %s\n", response.BookingDetail.AgencyBookingID)
 Retrieve reservation/booking details:
 
 ```go
-req := mg.GetRSVNDetailsRequest{
-    Login: mg.Credentials{
-        AgencyCode: "your-agency-code",
-        Username:   "your-username",
-        Password:   "your-password",
-    },
+req := mg.GetRSVNDetailsRequestDTO{
     MGBookingID:     "MG-BOOKING-12345",     // MG's booking ID
     AgencyBookingID: "TIXIA-BOOKING-12345",  // Your booking ID
 }
@@ -278,18 +269,19 @@ fmt.Printf("Hotel: %s\n", response.BookingDetail.Hotels.Hotel.Name)
 Searches for hotels with availability and pricing information.
 
 ```go
-func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*SearchHotelResponse, *MGError)
+func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*SearchHotelResponse, *MGError)
 ```
 
 **Request Parameters:**
+
 - `Login` (Credentials, required): Authentication credentials
 - `Nationality` (string, required): Guest nationality code
 - `Country` (string, required): Country code
 - `City` (string, required): City name
-- `Hotels` (*struct, optional): Specific hotel codes to search
+- `Hotels` (\*struct, optional): Specific hotel codes to search
 - `CheckIn` (string, required): Check-in date (YYYY-MM-DD)
 - `CheckOut` (string, required): Check-out date (YYYY-MM-DD)
-- `Rooms` (*struct, required): Room configuration with guest details
+- `Rooms` (\*struct, required): Room configuration with guest details
 - `Currency` (string, required): Currency code
 - `Language` (string, required): Language code
 - `AvailFlag` (bool, required): Availability flag
@@ -297,6 +289,7 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*Sear
 - `DetailLevel` (string, required): Detail level (e.g., "Full")
 
 **Response:**
+
 - `Status` (bool): Request status
 - `SessionID` (string): Session ID for subsequent operations
 - `NoOfHotels` (int): Number of hotels found
@@ -304,8 +297,8 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*Sear
 - `CheckIn` (string): Check-in date
 - `CheckOut` (string): Check-out date
 - `Currency` (string): Currency used
-- `ErrorCode` (*string): Error code if status is false
-- `ErrorMessage` (*string): Error message if status is false
+- `ErrorCode` (\*string): Error code if status is false
+- `ErrorMessage` (\*string): Error message if status is false
 
 **Timeout:** 10 seconds
 
@@ -314,10 +307,11 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequest) (*Sear
 Rechecks hotel availability and pricing using a session ID.
 
 ```go
-func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*RecheckHotelResponse, *MGError)
+func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (*RecheckHotelResponse, *MGError)
 ```
 
 **Request Parameters:**
+
 - `Login` (Credentials, required): Authentication credentials
 - `SessionID` (string, required): Session ID from SearchHotel response
 - `Nationality` (string, required): Guest nationality code
@@ -326,7 +320,7 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*Re
 - `HotelCode` (string, optional): Specific hotel code
 - `CheckIn` (string, required): Check-in date (YYYY-MM-DD)
 - `CheckOut` (string, required): Check-out date (YYYY-MM-DD)
-- `RoomDetails` (*RoomDetailsRequest, required): Room details configuration
+- `RoomDetails` (\*RoomDetailsRequest, required): Room details configuration
 - `Rooms` (struct, required): Room configuration with rate keys
 - `Currency` (string, required): Currency code
 - `Language` (string, optional): Language code
@@ -334,14 +328,15 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*Re
 - `DetailLevel` (string, optional): Detail level
 
 **Response:**
+
 - `Status` (bool): Request status
 - `SessionID` (string): Session ID
 - `Hotels` (struct): Hotel information with updated pricing
 - `CheckIn` (string): Check-in date
 - `CheckOut` (string): Check-out date
 - `Currency` (string): Currency used
-- `ErrorCode` (*string): Error code if status is false
-- `ErrorMessage` (*string): Error message if status is false
+- `ErrorCode` (\*string): Error code if status is false
+- `ErrorMessage` (\*string): Error message if status is false
 
 **Timeout:** 10 seconds
 
@@ -350,10 +345,11 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequest) (*Re
 Books a hotel with guest details.
 
 ```go
-func (c *Client) BookHotel(ctx context.Context, req BookHotelRequest) (*BookHotelResponse, *MGError)
+func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookHotelResponse, *MGError)
 ```
 
 **Request Parameters:**
+
 - `Login` (Credentials, required): Authentication credentials
 - `SessionID` (string, required): Session ID from SearchHotel response
 - `AgencyBookingID` (string, required): Your generated booking ID
@@ -371,6 +367,7 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequest) (*BookHote
 - `DetailLevel` (string, optional): Detail level
 
 **Response:**
+
 - `Status` (bool): Booking status
 - `SessionID` (string): Session ID
 - `BookingDetail` (BookingDetails): Complete booking details including MG booking ID
@@ -383,15 +380,17 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequest) (*BookHote
 Retrieves reservation/booking details.
 
 ```go
-func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequest) (*GetRSVNDetailsResponse, *MGError)
+func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDTO) (*GetRSVNDetailsResponse, *MGError)
 ```
 
 **Request Parameters:**
+
 - `Login` (Credentials, required): Authentication credentials
 - `MGBookingID` (string, required): MG's booking ID
 - `AgencyBookingID` (string, required): Your booking ID
 
 **Response:**
+
 - `Status` (bool): Request status
 - `SessionID` (string): Session ID
 - `BookingDetail` (BookingDetails): Complete booking/reservation details
@@ -545,7 +544,7 @@ import (
     "context"
     "fmt"
     "log"
-    
+
     "github.com/TixiaOTA/tixia-pkg/providers/mg"
     "github.com/TixiaOTA/tixia-pkg/logger"
 )
@@ -560,15 +559,15 @@ func main() {
             Password:   "your-password",
         },
     }
-    
+
     logger := logger.New()
     client, err := mg.New(config, logger)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     ctx := context.Background()
-    
+
     // Step 1: Search for hotels
     searchReq := mg.SearchHotelRequest{
         Login:       config.Credentials,
@@ -595,24 +594,24 @@ func main() {
         MaxNoOfHotel: 10,
         DetailLevel:  "Full",
     }
-    
+
     searchResp, mgErr := client.SearchHotel(ctx, searchReq)
     if mgErr != nil {
         log.Fatal(mgErr)
     }
-    
+
     fmt.Printf("Found %d hotels\n", searchResp.NoOfHotels)
-    
+
     if len(searchResp.Hotels.Hotel) == 0 {
         fmt.Println("No hotels found")
         return
     }
-    
+
     // Step 2: Select a hotel and room
     selectedHotel := searchResp.Hotels.Hotel[0]
     selectedRoom := selectedHotel.RoomDetails[0]
     rateKey := selectedRoom.Rooms.Room[0].RateKey
-    
+
     // Step 3: Recheck the hotel
     recheckReq := mg.RecheckHotelRequest{
         Login:       config.Credentials,
@@ -647,14 +646,14 @@ func main() {
         AvailFlag:   true,
         DetailLevel: "Full",
     }
-    
+
     recheckResp, mgErr := client.RecheckHotel(ctx, recheckReq)
     if mgErr != nil {
         log.Fatal(mgErr)
     }
-    
+
     fmt.Printf("Recheck successful for hotel: %s\n", recheckResp.Hotels.Hotel.Name)
-    
+
     // Step 4: Book the hotel
     bookReq := mg.BookHotelRequest{
         Login:           config.Credentials,
@@ -707,28 +706,28 @@ func main() {
         OnHold:      false,
         DetailLevel: "Full",
     }
-    
+
     bookResp, mgErr := client.BookHotel(ctx, bookReq)
     if mgErr != nil {
         log.Fatal(mgErr)
     }
-    
+
     fmt.Printf("Booking successful!\n")
     fmt.Printf("MG Booking ID: %s\n", bookResp.BookingDetail.MgBookingID)
     fmt.Printf("Agency Booking ID: %s\n", bookResp.BookingDetail.AgencyBookingID)
-    
+
     // Step 5: Retrieve booking details
     detailsReq := mg.GetRSVNDetailsRequest{
         Login:           config.Credentials,
         MGBookingID:     bookResp.BookingDetail.MgBookingID,
         AgencyBookingID: bookResp.BookingDetail.AgencyBookingID,
     }
-    
+
     detailsResp, mgErr := client.GetRSVNDetails(ctx, detailsReq)
     if mgErr != nil {
         log.Fatal(mgErr)
     }
-    
+
     fmt.Printf("Booking Status: %s\n", detailsResp.BookingDetail.Status)
     fmt.Printf("Check-in: %s\n", detailsResp.BookingDetail.CheckIn)
     fmt.Printf("Check-out: %s\n", detailsResp.BookingDetail.CheckOut)
@@ -738,4 +737,3 @@ func main() {
 ## License
 
 This package is part of the TixiaOTA project.
-

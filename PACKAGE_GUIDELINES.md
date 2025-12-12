@@ -20,7 +20,9 @@ This document outlines the structure, conventions, and best practices for creati
 
 **Optional Files:**
 
+- `dto.go` - Data Transfer Objects for API requests with conversion methods to internal models
 - `usecase.go` - High-level business logic combining multiple endpoints
+- `usecase_model.go` - Request/response types specific to high-level business logic
 - `usecase_test.go` - Tests for usecase methods
 
 ### Utility Packages (e.g., `logger`, `redis`, `channel`)
@@ -91,6 +93,20 @@ This document outlines the structure, conventions, and best practices for creati
 - Handle HTTP error status codes appropriately
 - Try to unmarshal error responses from APIs when possible
 
+### Request Validation
+
+- Implement `Validate()` methods on request structs to ensure required fields are present
+- Return descriptive errors for invalid or missing required fields
+- Call validation methods at the beginning of endpoint methods before processing requests
+- Use validation for both API requests and internal business logic requests
+
+### DTO Pattern
+
+- Use Data Transfer Objects (DTOs) in `dto.go` for API request structures when the external API format differs from internal models
+- Implement `ToInternalModel()` methods on DTOs to convert to internal model types
+- Keep DTOs lightweight and focused on API serialization/deserialization
+- Use internal models in `models.go` for responses and shared business logic types
+
 ### Request/Response Models
 
 - Define request types with JSON tags matching API specification
@@ -112,6 +128,8 @@ This document outlines the structure, conventions, and best practices for creati
 - Test all public methods and functions
 - Test error cases and edge cases
 - Test configuration validation
+- Test request validation methods (when applicable)
+- Test DTO conversion methods (when applicable)
 - Test HTTP client interactions (use mocks or test servers)
 - Test timeout and retry behavior when applicable
 
