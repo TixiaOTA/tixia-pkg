@@ -92,6 +92,56 @@ func (suite *EndpointTestSuite) TestSignIn_Error() {
 	fmt.Printf("SignIn error - Error: %v\n", err.Result)
 }
 
+func (suite *EndpointTestSuite) TestSearch_Success() {
+	// First, sign in to get the signature
+	signInResp, signInErr := suite.client.SignIn(context.Background())
+
+	suite.Nil(signInErr)
+	suite.NotNil(signInResp)
+	suite.Equal(signInResp.Result.ErrorCode, Success)
+	suite.NotEmpty(signInResp.Result.Response.Signature)
+
+	// Now test Search with the obtained signature
+	req := SearchRequest{
+		Signature: signInResp.Result.Response.Signature,
+		JourneyList: []JourneyListRequest{
+			{
+				Origin:        "CGK",
+				Destination:   "SIN",
+				DepartureDate: "2025-12-19",
+			},
+			{
+				Origin:        "SIN",
+				Destination:   "CGK",
+				DepartureDate: "2025-12-30",
+			},
+		},
+		Adult:        1,
+		Child:        0,
+		Infant:       0,
+		CabinClass:   "Y",
+		CarrierCodes: []string{"SQ"},
+		IsComboPrice: true,
+		Provider:     "sia",
+		PromoCodes:   []string{},
+	}
+
+	resp, err := suite.client.Search(context.Background(), req)
+
+	suite.Nil(err)
+	suite.NotNil(resp)
+	suite.Equal(resp.Result.ErrorCode, Success)
+	for _, s := range resp.Result.Response.Schedules {
+		for _, j := range s.Journeys {
+			suite.NotEmpty(j.JourneyCode)
+			suite.Equal(j.JourneyCode, j.JourneyCode)
+
+			fmt.Printf("Search successful - Sequence: %d, Journey Code: %s, Journey Ref ID: %s\n",
+				j.Sequence, j.JourneyCode, j.JourneyRefID)
+		}
+	}
+}
+
 func (suite *EndpointTestSuite) TestGetBooking_Success() {
 	// First, sign in to get the signature
 	signInResp, signInErr := suite.client.SignIn(context.Background())

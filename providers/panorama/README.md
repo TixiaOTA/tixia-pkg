@@ -5,6 +5,7 @@ A Go client library for interacting with the Panorama API, providing airline boo
 ## Features
 
 - **Authentication**: Sign in to the Panorama API using credentials
+- **Search**: Retrieve flight to the Panorama API
 - **Booking Management**: Retrieve booking details by order number
 - **Booking Cancellation**: Cancel bookings with "booked" status to "void" status
 - **High-Level Usecase**: Convenient wrapper for complex operations like bulk booking cancellation
@@ -151,6 +152,25 @@ type SignInResponse struct {
 }
 ```
 
+### Search
+
+Retrieve flight to the Panorama API
+
+```go
+func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, *PanoramaError)
+```
+
+**Response:**
+
+```go
+type SearchResponse struct {
+	Result struct {
+		BasicPanoramaResult
+		Response SearchResult `json:"response"`
+	} `json:"result"`
+}
+```
+
 ### GetBooking
 
 Retrieves booking details by order number.
@@ -204,6 +224,84 @@ The package provides a `Usecase` wrapper for complex operations that combine mul
 
 ```go
 usecase := panorama.NewUsecase(client)
+```
+
+### SearchBooking
+
+Search bookings, handling the complete workflow including authentication, and state validation.
+
+**Workflow:**
+
+1. Authenticates with the Panorama API (SignIn)
+2. Search to get flight
+
+```go
+func (u *Usecase) Search(ctx context.Context, req SearchBookingRequest) (*SearchBookingResponse, *PanoramaError)
+```
+
+**Request:**
+
+```go
+type SearchBookingRequest struct {
+	JourneyList []struct {
+		Origin        string `json:"origin"`
+		Destination   string `json:"destination"`
+		DepartureDate string `json:"departure_date"`
+	} `json:"journey_list"`
+	Adult        int      `json:"adult"`
+	Child        int      `json:"child"`
+	Infant       int      `json:"infant"`
+	CabinClass   string   `json:"cabin_class"`
+	CarrierCodes []string `json:"carrier_codes"`
+	IsComboPrice bool     `json:"is_combo_price"`
+	Provider     string   `json:"provider"`
+	PromoCodes   []string `json:"promo_codes"`
+}
+```
+
+**Response:**
+
+```go
+type SearchBookingResponse struct {
+	Signature string       `json:"signature"`
+	Results   SearchResult `json:"results"`
+}
+```
+
+**Example:**
+
+```go
+usecase := panorama.NewUsecase(client)
+
+req := SearchBookingRequest{
+    JourneyList: []struct {
+        Origin        string "json:\"origin\""
+        Destination   string "json:\"destination\""
+        DepartureDate string "json:\"departure_date\""
+    }{
+        {
+            Origin:        "CGK",
+            Destination:   "SIN",
+            DepartureDate: "2025-12-19",
+        },
+    },
+    Adult:        1,
+    Child:        0,
+    Infant:       0,
+    CabinClass:   "Y",
+    CarrierCodes: []string{"SQ"},
+    IsComboPrice: true,
+    Provider:     "sia",
+    PromoCodes:   []string{},
+}
+
+resp, err := usecase.Search(ctx, req)
+if err != nil {
+    log.Printf("Failed to process bulk cancellation: %v", err)
+    return
+}
+
+log.Printf("✓ Successfully Search booking %s (final results: %v)", resp.Signature, resp.Results)
 ```
 
 ### CancelBooking
@@ -302,6 +400,32 @@ type SignInResponse struct {
 
 **Timeout:** 10 seconds
 
+#### SearchBooking
+
+Retrieve flight to the Panorama API.
+
+```go
+func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `SearchRequest` (struct, required): Booking search to retrieve
+
+**Response:**
+
+```go
+type SearchResponse struct {
+	Result struct {
+		BasicPanoramaResult
+		Response SearchResult `json:"response"`
+	} `json:"result"`
+}
+```
+
+**Timeout:** 59 seconds
+
 #### GetBooking
 
 Retrieves booking details by order number.
@@ -389,10 +513,53 @@ type PanoramaErrorResult struct {
 
 ```go
 const (
-    InvalidRequest      PanoramaErrorCode = 400   // Invalid request data
-    InternalServerError PanoramaErrorCode = 500   // Server or network error
-    Success             PanoramaErrorCode = 0     // Operation successful
-    AccessDenied        PanoramaErrorCode = 4002  // Authentication failed
+    InvalidRequest        PanoramaErrorCode = 400   // Invalid request data
+    InternalServerError   PanoramaErrorCode = 500   // Server or network error
+    Success               PanoramaErrorCode = 0     // Operation successful
+    InvalidActionType     PanoramaErrorCode = 4001  // Invalid action type
+    AccessDenied          PanoramaErrorCode = 4002  // Authentication failed
+    SessionExpired        PanoramaErrorCode = 4003  // Your session has been expired
+    PermissionDenied      PanoramaErrorCode = 4004  // Permission denied
+	ProviderUnavailable   PanoramaErrorCode = 4005  // Provider is unavailable
+	PriceChanged          PanoramaErrorCode = 4006  // Price changed
+	SsrUnavailable        PanoramaErrorCode = 4007  // SSR not available
+	SeatUnavailable       PanoramaErrorCode = 4008  // Seat not available
+	FailedSsr             PanoramaErrorCode = 4009  // Failed to assign SSR
+	FailedSeat            PanoramaErrorCode = 4010  // Failed to assign Seat
+	MissingRequirement    PanoramaErrorCode = 4011  // Missing Requirements
+	DuplicateSession      PanoramaErrorCode = 4012  // Duplicate Session, Please create new session
+	ValidationError       PanoramaErrorCode = 4013  // Data Validation Error
+	AlreadyCall           PanoramaErrorCode = 4014  // You had already call this function
+	NotAllowed            PanoramaErrorCode = 4015  // Destinations are not allowed
+    FailedCommitBooking   PanoramaErrorCode = 4016  // Failed to commit booking
+	FailedGetBooking      PanoramaErrorCode = 4017  // Failed to get booking
+	AccessRestriction     PanoramaErrorCode = 4018  // Access restriction
+	FailedReissue         PanoramaErrorCode = 4019  // Failed to Reissue
+	NoSchedules           PanoramaErrorCode = 4020  // No Schedules
+	PriceUnavailable      PanoramaErrorCode = 4021  // Price is not available. Please choose another fare class combination
+	FailedCancelBooking   PanoramaErrorCode = 4022  // Cancel booking failed
+	ReservationNotFound   PanoramaErrorCode = 4023  // Reservation not found
+	VendorSessionExpired  PanoramaErrorCode = 4024  // Vendor session expired
+	FlightUnavailable     PanoramaErrorCode = 4025  // Flight is not available
+	HoldBookingRestricted PanoramaErrorCode = 4026  // Hold booking restricted, You have to Direct Issued this reservation
+	NotBalance            PanoramaErrorCode = 4027  // Not enough vendor balance
+	CannotInfant          PanoramaErrorCode = 4028  // Restricted booking, infant cannot be paired with senior citizen (YCD)
+	FailedIssued          PanoramaErrorCode = 4029  // Failed issued
+	UserBanned            PanoramaErrorCode = 4030  // User is banned
+	ResourceNotFound      PanoramaErrorCode = 4031  // Resource not found
+	FailedTransaction     PanoramaErrorCode = 4032  // Failed Transaction
+	FailedPayment         PanoramaErrorCode = 4033  // Failed to execute payment
+	TransactionPaid       PanoramaErrorCode = 4034  // Transaction has been paid on vendor
+	TransactionManual     PanoramaErrorCode = 4035  // Failed Transaction, manual resync needed
+	TransactionProgress   PanoramaErrorCode = 4036  // Transaction is still in progress, please try again later
+	FfUnavailable         PanoramaErrorCode = 4037  // Frequent Flyer is not available
+	PnrNotFound           PanoramaErrorCode = 4038  // PNR is not found
+	PnrNotAllowed         PanoramaErrorCode = 4039  // PNR not allowed to process
+	FailedSplitBooking    PanoramaErrorCode = 4040  // Failed Split Booking
+	FailedVendorBalance   PanoramaErrorCode = 4041  // Failed to retrieve vendor balance
+	NoUpdateDetected      PanoramaErrorCode = 4042  // No update change detected
+	CancelUnavailable     PanoramaErrorCode = 4043  // Cancel is not available
+	SplitUnavailable      PanoramaErrorCode = 4044  // Split is not available
 )
 ```
 

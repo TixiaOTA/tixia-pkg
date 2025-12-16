@@ -45,7 +45,7 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 		)
 
 		return nil, &APIError{
-			Code:    InternalServerError,
+			Code:    httpResp.StatusCode,
 			Message: err.Error(),
 		}
 	}
@@ -55,8 +55,26 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 		bodyBytes, _ := io.ReadAll(httpResp.Body)
 		defer httpResp.Body.Close()
 
+		// Try to unmarshal as PanoramaError first
+		var panoramaError PanoramaError
+		if err := json.Unmarshal(bodyBytes, &panoramaError); err == nil {
+			// Check if it's a valid PanoramaError
+			if panoramaError.Result.ErrorCode != Success || panoramaError.Result.ErrorMsg != "" {
+				return nil, &PanoramaError{
+					Result: PanoramaErrorResult{
+						BasicPanoramaResult: BasicPanoramaResult{
+							ErrorCode: panoramaError.Result.ErrorCode,
+							ErrorMsg:  panoramaError.Result.ErrorMsg,
+						},
+						Response:           panoramaError.Result.Response,
+						ErrorAdditionalMsg: panoramaError.Result.ErrorAdditionalMsg,
+					},
+				}
+			}
+		}
+
 		return nil, &APIError{
-			Code:    InternalServerError,
+			Code:    httpResp.StatusCode,
 			Message: string(bodyBytes),
 		}
 	}

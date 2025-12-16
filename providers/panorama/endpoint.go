@@ -19,6 +19,7 @@ const (
 	signInTimeout     = 10 * time.Second
 	getBookingTimeout = 10 * time.Second
 	cancelTimeout     = 10 * time.Second
+	searchTimeout     = 90 * time.Second
 )
 
 // SignIn signs in to the Panorama API
@@ -54,6 +55,53 @@ func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *PanoramaError) {
 	}
 
 	var resp SignInResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetBooking gets a booking by order number
+func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "Search")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting Search request", zap.Any("request", req))
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	// Set timeout
+	c.httpClient.SetTimeout(searchTimeout)
+
+	// Add header
+	headers := map[string]string{
+		"Action":    string(Search),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		// api error
+
+		// panorma err
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp SearchResponse
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)
