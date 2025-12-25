@@ -464,10 +464,13 @@ type HotelDetailHotel struct {
 	Mealplans        struct {
 		Mealplan []Mealplan `json:"mealplan"`
 	} `json:"mealplans"`
-	Facilities  []Facility `json:"facilities"`
-	RoomDetails struct {
+	Facilities   []Facility `json:"facilities"`
+	RoomsDetails struct {
 		RoomDetails []HotelDetailRoomDetail `json:"roomDetails"`
 	} `json:"roomsDetails"`
+	Photo struct {
+		Image []Image `json:"image"`
+	} `json:"photo"`
 }
 
 type Address struct {
@@ -533,12 +536,8 @@ type HotelDetailRoomDetail struct {
 		AmenitiesGroup []AmenitiesGroup `json:"amenitiesGroup"`
 	}
 	Photo struct {
-		Image []struct {
-			URL    string `json:"url"`
-			IsMain bool   `json:"isMain"`
-			IsCDN  bool   `json:"isCDN"`
-		} `json:"image"`
-	}
+		Image []Image `json:"image"`
+	} `json:"photo"`
 }
 
 type AmenitiesGroup struct {
@@ -563,4 +562,10 @@ type Description struct {
 
 type DescriptionContent struct {
 	CDataSection string `json:"#cdata-section"`
+}
+
+type Image struct {
+	URL    string `json:"url"`
+	IsMain bool   `json:"isMain"`
+	IsCDN  bool   `json:"isCDN"`
 }
