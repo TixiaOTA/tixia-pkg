@@ -10,6 +10,7 @@ The MG package enables you to:
 - Recheck hotel availability and pricing using session IDs
 - Book hotels with guest details
 - Retrieve reservation/booking details
+- Get detailed hotel information including facilities, address, and room details
 
 ## Installation
 
@@ -260,6 +261,48 @@ fmt.Printf("Check-out: %s\n", response.BookingDetail.CheckOut)
 fmt.Printf("Hotel: %s\n", response.BookingDetail.Hotels.Hotel.Name)
 ```
 
+### Get Hotel Detail
+
+Get detailed information about a specific hotel:
+
+```go
+req := mg.GetHotelDetailRequestDTO{
+    HotelCode: "HOTEL123", // Required: Hotel code from SearchHotel response
+    // Language and DetailLevel are optional - defaults to "EN" and "FULL"
+}
+
+response, mgErr := client.GetHotelDetail(ctx, req)
+if mgErr != nil {
+    log.Fatal(mgErr)
+}
+
+fmt.Printf("Hotel: %s\n", response.Hotel.Name)
+fmt.Printf("Rating: %s\n", response.Hotel.Rating)
+fmt.Printf("Address: %s, %s, %s %s\n",
+    response.Hotel.Address.Address1,
+    response.Hotel.Address.CityName,
+    response.Hotel.Address.CountryName,
+    response.Hotel.Address.ZipCode)
+fmt.Printf("Geolocation: %.6f, %.6f\n",
+    response.Hotel.Geolocation.Latitude,
+    response.Hotel.Geolocation.Longitude)
+
+fmt.Printf("Facilities:\n")
+for _, facilityGroup := range response.Hotel.Facilities {
+    for _, facilityType := range facilityGroup.FacilityGroup {
+        if facilityType.Name != nil {
+            fmt.Printf("  - %s\n", *facilityType.Name)
+        }
+    }
+}
+
+fmt.Printf("Room Details:\n")
+for _, room := range response.Hotel.RoomDetails {
+    fmt.Printf("  - %s (Code: %s, Max Occupancy: %d)\n",
+        room.RoomName, room.RoomCode, room.MaxOccupancy)
+}
+```
+
 ## API Reference
 
 ### Client Methods
@@ -397,6 +440,39 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDT
 
 **Timeout:** 10 seconds
 
+#### GetHotelDetail
+
+Retrieves detailed information about a specific hotel.
+
+```go
+func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDTO) (*GetHotelDetailResponse, *MGError)
+```
+
+**Request Parameters:**
+
+- `Login` (Credentials, required): Authentication credentials
+- `HotelCode` (string, required): Hotel code from SearchHotel response
+- `Language` (\*string, optional): Language code (defaults to "EN")
+- `DetailLevel` (\*string, optional): Detail level (defaults to "FULL")
+
+**Validation:**
+
+- `HotelCode` is required and cannot be empty
+
+**Response:**
+
+- `Status` (bool): Request status
+- `SessionID` (string): Session ID
+- `Hotel` (HotelDetailHotel): Complete hotel details including:
+  - Basic info: Name, Rating, Address, Geolocation
+  - Contact info: Telephone, Email, Website
+  - Facilities: Categorized facility groups and types
+  - Room details: Room codes, names, occupancy, smoking policies
+- `ErrorCode` (\*string): Error code if status is false
+- `ErrorMessage` (\*string): Error message if status is false
+
+**Timeout:** 10 seconds
+
 ## Error Handling
 
 The package returns `*MGError` for API-related errors:
@@ -419,6 +495,7 @@ func (e *MGError) Error() string {
 - `JRVXML161`: Intermittent server error (must retry)
 - `JRVXML013`: Invalid request (request body is invalid)
 - `JRVXML112`: AgencyBookingID already exists
+- `JRVXML005`: Invalid HotelCode
 
 **Example:**
 

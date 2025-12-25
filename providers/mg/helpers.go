@@ -53,7 +53,20 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 // parseResponseBody unmarshals the response body into the given response.
 // If the response is a MGError, it will be unmarshaled into the MGError.
 // If the response is not a MGError, it will be unmarshaled into the response.
-func parseResponseBody(bodyBytes []byte, response any) error {
+func parseResponseBody(body io.ReadCloser, response any) error {
+	defer body.Close()
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(body)
+	if err != nil {
+		return &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+			RawBody:      &bodyBytes,
+		}
+	}
+
 	// Try to unmarshal as MGError first
 	var mgError MGError
 	if err := json.Unmarshal(bodyBytes, &mgError); err == nil {
@@ -70,7 +83,12 @@ func parseResponseBody(bodyBytes []byte, response any) error {
 
 	// If not a MGError, unmarshal as response
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
-		return err
+		return &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+			RawBody:      &bodyBytes,
+		}
 	}
 
 	return nil
