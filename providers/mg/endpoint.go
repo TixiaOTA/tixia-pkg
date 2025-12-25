@@ -2,6 +2,7 @@ package mg
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/TixiaOTA/tixia-pkg/logger"
@@ -52,7 +53,10 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*S
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp SearchHotelResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -93,7 +97,10 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp RecheckHotelResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -135,7 +142,10 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookH
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp BookHotelResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -176,7 +186,10 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDT
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp GetRSVNDetailsResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -217,7 +230,10 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp CancelReservationResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -265,7 +281,11 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp GetRSVNListResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
@@ -288,6 +308,15 @@ func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDT
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetHotelDetail")
 	defer span.End()
 
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    BadRequestError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
 	// Convert the request to the internal model
 	internalReq := req.ToInternalModel(c.config.Credentials)
 
@@ -306,7 +335,10 @@ func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDT
 			ErrorMessage: err.Error(),
 		}
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
 
 	var resp GetHotelDetailResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {

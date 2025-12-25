@@ -170,6 +170,13 @@ type GetHotelDetailRequestDTO struct {
 	DetailLevel *string `json:"DetailLevel,omitempty"` // Optional. Default: FULL
 }
 
+func (dto *GetHotelDetailRequestDTO) Validate() error {
+	if dto.HotelCode == "" {
+		return errors.New("hotel code is required")
+	}
+	return nil
+}
+
 func (dto *GetHotelDetailRequestDTO) ToInternalModel(credentials Credentials) GetHotelDetailRequest {
 	language := "EN"
 	if dto.Language != nil {

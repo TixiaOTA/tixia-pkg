@@ -21,4 +21,7 @@ const (
 
 	// AgencyBookingID already exists.
 	JRVXML112 MGErrorCode = "JRVXML112"
+
+	// Invalid HotelCode.
+	JRVXML005 MGErrorCode = "JRVXML005"
 )

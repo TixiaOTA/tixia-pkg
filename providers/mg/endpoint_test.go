@@ -430,7 +430,7 @@ func (suite *EndpointTestSuite) TestGetHotelDetail_Success() {
 
 func (suite *EndpointTestSuite) TestGetHotelDetail_Error() {
 	req := GetHotelDetailRequestDTO{
-		HotelCode: testHotelCode,
+		HotelCode: "",
 	}
 
 	resp, err := suite.client.GetHotelDetail(context.Background(), req)

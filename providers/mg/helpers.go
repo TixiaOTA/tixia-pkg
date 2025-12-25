@@ -54,6 +54,8 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 // If the response is a MGError, it will be unmarshaled into the MGError.
 // If the response is not a MGError, it will be unmarshaled into the response.
 func parseResponseBody(body io.ReadCloser, response any) error {
+	defer body.Close()
+
 	// Read the response body
 	bodyBytes, err := io.ReadAll(body)
 	if err != nil {

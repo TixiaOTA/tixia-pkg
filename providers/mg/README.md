@@ -455,6 +455,10 @@ func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDT
 - `Language` (\*string, optional): Language code (defaults to "EN")
 - `DetailLevel` (\*string, optional): Detail level (defaults to "FULL")
 
+**Validation:**
+
+- `HotelCode` is required and cannot be empty
+
 **Response:**
 
 - `Status` (bool): Request status
@@ -491,6 +495,7 @@ func (e *MGError) Error() string {
 - `JRVXML161`: Intermittent server error (must retry)
 - `JRVXML013`: Invalid request (request body is invalid)
 - `JRVXML112`: AgencyBookingID already exists
+- `JRVXML005`: Invalid HotelCode
 
 **Example:**
 
