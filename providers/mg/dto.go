@@ -163,3 +163,28 @@ func (dto *GetRSVNListRequestDTO) ToInternalModel(credentials Credentials) GetRS
 		Status:   dto.Status,
 	}
 }
+
+type GetHotelDetailRequestDTO struct {
+	HotelCode   string  `json:"HotelCode"`
+	Language    *string `json:"Language,omitempty"`    // Optional. Default: EN
+	DetailLevel *string `json:"DetailLevel,omitempty"` // Optional. Default: FULL
+}
+
+func (dto *GetHotelDetailRequestDTO) ToInternalModel(credentials Credentials) GetHotelDetailRequest {
+	language := "EN"
+	if dto.Language != nil {
+		language = *dto.Language
+	}
+
+	detailLevel := "FULL"
+	if dto.DetailLevel != nil {
+		detailLevel = *dto.DetailLevel
+	}
+
+	return GetHotelDetailRequest{
+		Login:       credentials,
+		HotelCode:   dto.HotelCode,
+		Language:    language,
+		DetailLevel: detailLevel,
+	}
+}

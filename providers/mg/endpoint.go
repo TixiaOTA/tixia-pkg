@@ -2,7 +2,6 @@ package mg
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/TixiaOTA/tixia-pkg/logger"
@@ -17,6 +16,7 @@ const (
 	getRSVNDetailsPath    = "/GetRSVNDetails"
 	cancelReservationPath = "/CancelReservation"
 	getRSVNListPath       = "/GetRSVNList"
+	getHotelDetailPath    = "/GetHotelDetail"
 )
 
 const (
@@ -26,6 +26,7 @@ const (
 	getRSVNDetailsTimeout    = 10 * time.Second
 	cancelReservationTimeout = 10 * time.Second
 	getRSVNListTimeout       = 10 * time.Second
+	getHotelDetailTimeout    = 10 * time.Second
 )
 
 // SearchHotel searches for hotels
@@ -53,18 +54,8 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*S
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, &MGError{
-			Status:       false,
-			ErrorCode:    InternalServerError,
-			ErrorMessage: err.Error(),
-		}
-	}
-
 	var resp SearchHotelResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}
@@ -104,18 +95,8 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, &MGError{
-			Status:       false,
-			ErrorCode:    InternalServerError,
-			ErrorMessage: err.Error(),
-		}
-	}
-
 	var resp RecheckHotelResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}
@@ -156,18 +137,8 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookH
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, &MGError{
-			Status:       false,
-			ErrorCode:    InternalServerError,
-			ErrorMessage: err.Error(),
-		}
-	}
-
 	var resp BookHotelResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}
@@ -207,18 +178,8 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDT
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, &MGError{
-			Status:       false,
-			ErrorCode:    InternalServerError,
-			ErrorMessage: err.Error(),
-		}
-	}
-
 	var resp GetRSVNDetailsResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}
@@ -258,18 +219,8 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return nil, &MGError{
-			Status:       false,
-			ErrorCode:    InternalServerError,
-			ErrorMessage: err.Error(),
-		}
-	}
-
 	var resp CancelReservationResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}
@@ -316,9 +267,12 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 	}
 	defer httpResp.Body.Close()
 
-	// Read the response body
-	bodyBytes, err := io.ReadAll(httpResp.Body)
-	if err != nil {
+	var resp GetRSVNListResponse
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
 		return nil, &MGError{
 			Status:       false,
 			ErrorCode:    InternalServerError,
@@ -326,8 +280,36 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 		}
 	}
 
-	var resp GetRSVNListResponse
-	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+	return &resp, nil
+}
+
+// GetHotelDetail gets the hotel details
+func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDTO) (*GetHotelDetailResponse, *MGError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetHotelDetail")
+	defer span.End()
+
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
+	// Sanitize the request for logging
+	sanitizedReq, _ := logger.Sanitize(internalReq)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetHotelDetail request", zap.Any("request", sanitizedReq))
+
+	// Set timeout
+	c.httpClient.SetTimeout(getHotelDetailTimeout)
+
+	httpResp, err := c.sendRequest(ctx, internalReq, getHotelDetailPath, nil)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+	defer httpResp.Body.Close()
+
+	var resp GetHotelDetailResponse
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)
 		}

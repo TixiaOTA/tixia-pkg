@@ -37,6 +37,9 @@ var (
 	}
 	testAgencyBookingID = "TIXIA-BOOKING-12345"
 	testReservationDate = "2025-11-12"
+
+	// Test data for GetHotelDetail
+	testHotelCode = "ID012345"
 )
 
 type EndpointTestSuite struct {
@@ -406,4 +409,35 @@ func (suite *EndpointTestSuite) TestCancelReservation_Error() {
 	suite.NotNil(err.RawBody)
 
 	fmt.Printf("CancelReservation error - Error: %v, RawBody: %s\n", err.Error(), err.RawBody)
+}
+
+func (suite *EndpointTestSuite) TestGetHotelDetail_Success() {
+	req := GetHotelDetailRequestDTO{
+		HotelCode: testHotelCode,
+	}
+
+	resp, err := suite.client.GetHotelDetail(context.Background(), req)
+
+	suite.Nil(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.NotEmpty(resp.SessionID)
+	suite.NotEmpty(resp.Hotel.HotelCode)
+
+	fmt.Printf("GetHotelDetail successful - Hotel Code: %s, Name: %s, Rating: %s\n",
+		resp.Hotel.HotelCode, resp.Hotel.Name, resp.Hotel.Rating)
+}
+
+func (suite *EndpointTestSuite) TestGetHotelDetail_Error() {
+	req := GetHotelDetailRequestDTO{
+		HotelCode: testHotelCode,
+	}
+
+	resp, err := suite.client.GetHotelDetail(context.Background(), req)
+
+	suite.NotNil(err)
+	suite.Nil(resp)
+	suite.NotNil(err.RawBody)
+
+	fmt.Printf("GetHotelDetail error - Error: %v, RawBody: %s\n", err.Error(), err.RawBody)
 }

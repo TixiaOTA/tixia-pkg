@@ -107,6 +107,13 @@ type GetRSVNListRequest struct {
 	Status   MGReservationListStatuses  `json:"Status,omitempty"`
 }
 
+type GetHotelDetailRequest struct {
+	Login       Credentials `json:"Login"`
+	HotelCode   string      `json:"HotelCode"`
+	Language    string      `json:"Language"`
+	DetailLevel string      `json:"DetailLevel"`
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -176,6 +183,15 @@ type CancelReservationResponse struct {
 	ErrorCode     *string                              `json:"errorCode"`
 	ErrorMessage  *string                              `json:"errorMessage"`
 	BookingDetail CancellationReservationBookingDetail `json:"bookingDetails"`
+}
+
+type GetHotelDetailResponse struct {
+	Status       bool             `json:"status"`
+	ResponseTime int              `json:"responseTime"`
+	SessionID    string           `json:"sessionID"`
+	ErrorCode    *string          `json:"errorCode"`
+	ErrorMessage *string          `json:"errorMessage"`
+	Hotel        HotelDetailHotel `json:"hotel"`
 }
 
 // --------------------------------- SHARED TYPES ---------------------------------
@@ -420,4 +436,131 @@ type CancellationReservationBookingDetail struct {
 	HotelBookingID       string                                      `json:"hotelBookingID"`
 	Status               string                                      `json:"status"`
 	CancellationPolicies CancellationReservationCancellationPolicies `json:"cancellationPolicies"`
+}
+
+type HotelDetailHotel struct {
+	HotelCode        string      `json:"hotelCode"`
+	Name             string      `json:"name"`
+	Rating           string      `json:"rating"`
+	ChainCode        string      `json:"chainCode"`
+	ChainName        string      `json:"chainName"`
+	BrandCode        string      `json:"brandCode"`
+	BrandName        string      `json:"brandName"`
+	Type             string      `json:"type"`
+	IsMGPreferred    bool        `json:"isMGPreferred"`
+	Currency         string      `json:"currency"`
+	TopHotelYear     *string     `json:"topHotelYear"`
+	Address          Address     `json:"address"`
+	Geolocation      Geolocation `json:"geoLocation"`
+	ShortDescription Description `json:"shortDescription"`
+	LongDescription  Description `json:"longDescription"`
+	Reservation      Reservation `json:"reservation"`
+	Timezone         string      `json:"timezone"`
+	CheckInTime      string      `json:"checkInTime"`
+	CheckOutTime     string      `json:"checkOutTime"`
+	Website          string      `json:"website"`
+	Childpolicy      ChildPolicy `json:"childpolicy"`
+	TotalNoOfRooms   string      `json:"totalNoOfRooms"`
+	Mealplans        struct {
+		Mealplan []Mealplan `json:"mealplan"`
+	} `json:"mealplans"`
+	Facilities  []Facility `json:"facilities"`
+	RoomDetails struct {
+		RoomDetails []HotelDetailRoomDetail `json:"roomDetails"`
+	} `json:"roomsDetails"`
+}
+
+type Address struct {
+	Address1      string `json:"address1"`
+	Address2      string `json:"address2"`
+	ZipCode       string `json:"zipCode"`
+	ContinentCode string `json:"continentCode"`
+	ContinentName string `json:"continentName"`
+	CountryCode   string `json:"countryCode"`
+	CountryName   string `json:"countryName"`
+	CityCode      string `json:"cityCode"`
+	CityName      string `json:"cityName"`
+	Area          string `json:"area"`
+	Landmark      string `json:"landmark"`
+}
+
+type Geolocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type Reservation struct {
+	Telephone string `json:"telephone"`
+	Email     string `json:"email"`
+}
+
+type ChildPolicy struct {
+	MinAge int `json:"minAge"`
+	MaxAge int `json:"maxAge"`
+}
+
+type Mealplan struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type Facility struct {
+	FacilityGroup []FacilityGroup `json:"facilityGroup"`
+}
+
+type FacilityGroup struct {
+	Name         string         `json:"name"`
+	FacilityType []FacilityType `json:"facilityType"`
+}
+
+type FacilityType struct {
+	Name     *string `json:"name"`
+	Facility []struct {
+		Name string `json:"name"`
+	} `json:"facility"`
+}
+
+type HotelDetailRoomDetail struct {
+	RoomCode         string      `json:"roomCode"`
+	RoomName         string      `json:"roomName"`
+	RoomSize         *string     `json:"roomSize"`
+	MaxOccupancy     int         `json:"maxOccupancy"`
+	MaxAdults        int         `json:"maxAdults"`
+	MaxChildren      int         `json:"maxChildren"`
+	IsSmokingAllowed bool        `json:"isSmokingAllowed"`
+	RoomDescription  Description `json:"roomDescription"`
+	Amenities        struct {
+		AmenitiesGroup []AmenitiesGroup `json:"amenitiesGroup"`
+	}
+	Photo struct {
+		Image []struct {
+			URL    string `json:"url"`
+			IsMain bool   `json:"isMain"`
+			IsCDN  bool   `json:"isCDN"`
+		} `json:"image"`
+	}
+}
+
+type AmenitiesGroup struct {
+	AmenityGroupName  string              `json:"amenityGroupName"`
+	AmenitiesTypeList []AmenitiesTypeList `json:"amenitiesTypeList"`
+}
+
+type AmenitiesTypeList struct {
+	AmenityTypeName *string   `json:"amenityTypeName"`
+	AmenitiesList   []Amenity `json:"amenitiesList"`
+}
+
+type Amenity struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
+}
+
+type Description struct {
+	Content      string               `json:"content"`
+	CDataContent []DescriptionContent `json:"cDataContent"`
+}
+
+type DescriptionContent struct {
+	CDataSection string `json:"#cdata-section"`
 }
