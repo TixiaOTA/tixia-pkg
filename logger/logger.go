@@ -32,6 +32,8 @@ type Config struct {
 	FilePath    string
 	Environment string
 	Loki        *LokiConfig
+	AddCaller   *bool
+	AddStack    *bool
 }
 
 // LokiConfig represents Loki-specific configuration
@@ -104,7 +106,17 @@ func New(config Config) *Logger {
 
 	core = zapcore.NewTee(cores...)
 
-	zapLogger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	zapLoggerOptions := []zap.Option{}
+
+	if config.AddCaller != nil && *config.AddCaller {
+		zapLoggerOptions = append(zapLoggerOptions, zap.AddCaller())
+	}
+
+	if config.AddStack != nil && *config.AddStack {
+		zapLoggerOptions = append(zapLoggerOptions, zap.AddStacktrace(zapcore.ErrorLevel))
+	}
+
+	zapLogger := zap.New(core, zapLoggerOptions...)
 
 	return &Logger{
 		Logger:     zapLogger,
