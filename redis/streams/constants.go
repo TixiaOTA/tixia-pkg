@@ -116,4 +116,5 @@ const (
 	TopicHotelBookResults                 string = "hotel.book.results"
 	TopicHotelReservationDetailsRequested string = "hotel.reservationdetails.requested"
 	TopicHotelReservationDetailsResults   string = "hotel.reservationdetails.results"
+	TopicHotelPopulationRequested         string = "hotel.population.requested"
 )
