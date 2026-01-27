@@ -116,5 +116,10 @@ const (
 	TopicHotelBookResults                 string = "hotel.book.results"
 	TopicHotelReservationDetailsRequested string = "hotel.reservationdetails.requested"
 	TopicHotelReservationDetailsResults   string = "hotel.reservationdetails.results"
-	TopicHotelPopulationRequested         string = "hotel.population.requested"
+)
+
+// Population events
+const (
+	TopicHotelPopulationRequested     string = "hotel.population.requested"
+	TopicHotelCityPopulationRequested string = "hotel.city.population.requested"
 )
