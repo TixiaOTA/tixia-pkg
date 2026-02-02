@@ -236,6 +236,13 @@ func (c *Client) SendToDevice(ctx context.Context, req SendToDeviceRequest) (*Me
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "firebase", "SendToDevice")
 	defer span.End()
 
+	if len(req.Message.Tokens) == 0 {
+		return nil, &FirebaseError{
+			Code:    InvalidArgument,
+			Message: "no tokens provided",
+		}
+	}
+
 	// Sanitize request for logging (remove sensitive data)
 	sanitizedReq, _ := logger.Sanitize(req)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SendToDevice request", zap.Any("request", sanitizedReq))
@@ -331,11 +338,11 @@ func (c *Client) SendToDevice(ctx context.Context, req SendToDeviceRequest) (*Me
 	messages := make([]*messaging.Message, 0, len(req.Message.Tokens))
 	for _, token := range req.Message.Tokens {
 		msg := &messaging.Message{
-			Token:       token,
+			Token:        token,
 			Notification: fcmMessage.Notification,
-			Android:     fcmMessage.Android,
-			APNS:        fcmMessage.APNS,
-			Webpush:     fcmMessage.Webpush,
+			Android:      fcmMessage.Android,
+			APNS:         fcmMessage.APNS,
+			Webpush:      fcmMessage.Webpush,
 		}
 		messages = append(messages, msg)
 	}
