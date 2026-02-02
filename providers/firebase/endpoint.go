@@ -241,10 +241,7 @@ func (c *Client) SendToDevice(ctx context.Context, req SendToDeviceRequest) (*Me
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SendToDevice request", zap.Any("request", sanitizedReq))
 
 	// Convert our message to Firebase SDK message
-	fcmMessage := &messaging.MulticastMessage{
-		Tokens: req.Message.Tokens,
-		Data:   req.Message.Data,
-	}
+	fcmMessage := &messaging.Message{}
 
 	// Add notification if present
 	if req.Message.Notification != nil {
@@ -330,17 +327,37 @@ func (c *Client) SendToDevice(ctx context.Context, req SendToDeviceRequest) (*Me
 		}
 	}
 
-	// Send message
-	response, err := c.msgClient.SendEachForMulticast(ctx, fcmMessage)
+	// Send messages to all device tokens in a single batch request
+	messages := make([]*messaging.Message, 0, len(req.Message.Tokens))
+	for _, token := range req.Message.Tokens {
+		msg := &messaging.Message{
+			Token:       token,
+			Notification: fcmMessage.Notification,
+			Android:     fcmMessage.Android,
+			APNS:        fcmMessage.APNS,
+			Webpush:     fcmMessage.Webpush,
+		}
+		messages = append(messages, msg)
+	}
+
+	batchResp, err := c.msgClient.SendEach(ctx, messages)
 	if err != nil {
 		firebaseErr := mapMessagingError(err)
-		c.logger.WithTrace(ctx, currentSpanId).Error("SendToDevice failed", zap.Error(firebaseErr))
+		c.logger.WithTrace(ctx, currentSpanId).Error("SendToDevice batch send failed", zap.Error(firebaseErr))
 		return nil, firebaseErr
 	}
 
-	messageIds := make([]string, len(response.Responses))
-	for i, r := range response.Responses {
-		messageIds[i] = r.MessageID
+	// Collect successful message IDs, log failures
+	messageIds := make([]string, 0, batchResp.SuccessCount)
+	for i, resp := range batchResp.Responses {
+		if resp.Success {
+			messageIds = append(messageIds, resp.MessageID)
+		} else {
+			c.logger.WithTrace(ctx, currentSpanId).Error("SendToDevice partial failure",
+				zap.Int("tokenIndex", i),
+				zap.String("token", req.Message.Tokens[i]),
+				zap.Error(resp.Error))
+		}
 	}
 
 	messageResponse := &MessageResponse{
