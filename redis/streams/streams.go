@@ -59,7 +59,11 @@ type StreamConfig struct {
 }
 
 // EventHandler is a function that processes events
-type EventHandler func(ctx context.Context, event Event) error
+type EventHandler struct {
+	HandlerFunc func(ctx context.Context, event Event) error
+	WithTimeout bool
+	Timeout     time.Duration
+}
 
 // EventCorrelation represents a correlation between a request and its response
 type EventCorrelation struct {
@@ -541,6 +545,11 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 	if err := json.Unmarshal([]byte(eventData), &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
+	
+	sm.logger.Info("Processing event",
+		zap.String("event_id", event.ID),
+		zap.String("event_type", event.Type),
+	)
 
 	streamName := fmt.Sprintf("%s:%s", sm.config.StreamPrefix, event.Type)
 
@@ -600,14 +609,29 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 	rawTraceCtx := message.Values["traceContext"]
 	traceMap := redisutil.NormalizeTraceMap(rawTraceCtx)
 	ctxWithTrace := otelpkg.ExtractTraceContext(ctx, traceMap)
-	// Create a fresh context for handler execution to prevent cancellation issues
-	handlerCtx, cancel := context.WithTimeout(ctxWithTrace, 3*time.Minute)
 
-	handlerErr := handler(handlerCtx, event)
-	cancel()
+	// Create a fresh context for handler execution to prevent cancellation issues
+	var handlerCtx context.Context
+	var cancel context.CancelFunc
+
+	if handler.WithTimeout {
+		handlerTimeout := 3 * time.Minute
+		if handler.Timeout > 0 {
+			handlerTimeout = handler.Timeout
+		}
+		handlerCtx, cancel = context.WithTimeout(ctxWithTrace, handlerTimeout)
+	} else {
+		handlerCtx = context.Background()
+	}
+
+	handlerErr := handler.HandlerFunc(handlerCtx, event)
+	if cancel != nil {
+		cancel()
+	}
 
 	if handlerErr != nil {
 		sm.logger.Error("Handler failed",
+			zap.String("event_id", event.ID),
 			zap.String("event_type", event.Type),
 			zap.Error(handlerErr),
 		)
