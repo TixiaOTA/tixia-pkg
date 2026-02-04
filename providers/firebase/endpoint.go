@@ -2,6 +2,7 @@ package firebase
 
 import (
 	"context"
+	"maps"
 
 	"firebase.google.com/go/v4/auth"
 	"firebase.google.com/go/v4/messaging"
@@ -334,11 +335,19 @@ func (c *Client) SendToDevice(ctx context.Context, req SendToDeviceRequest) (*Me
 		}
 	}
 
+	if req.Message.Data != nil {
+		if fcmMessage.Data == nil {
+			fcmMessage.Data = make(map[string]string)
+		}
+		maps.Copy(fcmMessage.Data, req.Message.Data)
+	}
+
 	// Send messages to all device tokens in a single batch request
 	messages := make([]*messaging.Message, 0, len(req.Message.Tokens))
 	for _, token := range req.Message.Tokens {
 		msg := &messaging.Message{
 			Token:        token,
+			Data:         fcmMessage.Data,
 			Notification: fcmMessage.Notification,
 			Android:      fcmMessage.Android,
 			APNS:         fcmMessage.APNS,
