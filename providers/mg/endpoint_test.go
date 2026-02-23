@@ -441,3 +441,39 @@ func (suite *EndpointTestSuite) TestGetHotelDetail_Error() {
 
 	fmt.Printf("GetHotelDetail error - Error: %v, RawBody: %s\n", err.Error(), err.RawBody)
 }
+
+func (suite *EndpointTestSuite) TestGetDestinations_Success() {
+	req := GetDestinationsRequestDTO{}
+
+	resp, err := suite.client.GetDestinations(context.Background(), req)
+
+	suite.Nil(err)
+	suite.NotNil(resp)
+	suite.True(resp.Status)
+	suite.NotEmpty(resp.SessionID)
+
+	fmt.Printf("GetDestinations successful - SessionID: %s\n", resp.SessionID)
+	if len(resp.Continents.Continent) > 0 {
+		fmt.Printf("Found %d continents\n", len(resp.Continents.Continent))
+		for i, continent := range resp.Continents.Continent {
+			if i < 3 {
+				fmt.Printf("Continent %d: Code=%s, Name=%s, Countries=%d\n",
+					i+1, continent.Code, continent.Name, len(continent.Countries.Country))
+			}
+		}
+	}
+}
+
+func (suite *EndpointTestSuite) TestGetDestinations_Error() {
+	invalidContinent := "INVALID"
+	req := GetDestinationsRequestDTO{
+		Continent: &invalidContinent,
+	}
+
+	resp, err := suite.client.GetDestinations(context.Background(), req)
+
+	suite.NotNil(err)
+	suite.Nil(resp)
+
+	fmt.Printf("GetDestinations error - Error: %v\n", err.Error())
+}
