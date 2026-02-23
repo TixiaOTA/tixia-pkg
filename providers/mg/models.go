@@ -114,6 +114,13 @@ type GetHotelDetailRequest struct {
 	DetailLevel string      `json:"DetailLevel"`
 }
 
+type GetDestinationsRequest struct {
+	Login        Credentials `json:"Login"`
+	Language     string      `json:"Language,omitempty"`     // Optional. Default: EN
+	Continent    string      `json:"Continent,omitempty"`    // Optional. NA, AF, EU, AS, OC, SA
+	FromDateTime string      `json:"FromDateTime,omitempty"` // Optional. Format: YYYY-MM-DD HH:mm:ss
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
@@ -192,6 +199,15 @@ type GetHotelDetailResponse struct {
 	ErrorCode    *string          `json:"errorCode"`
 	ErrorMessage *string          `json:"errorMessage"`
 	Hotel        HotelDetailHotel `json:"hotel"`
+}
+
+type GetDestinationsResponse struct {
+	Status       bool       `json:"status"`
+	ResponseTime int        `json:"responseTime"`
+	SessionID    string     `json:"sessionID"`
+	ErrorCode    *string    `json:"errorCode"`
+	ErrorMessage *string    `json:"errorMessage"`
+	Continents   Continents `json:"continents"`
 }
 
 // --------------------------------- SHARED TYPES ---------------------------------
@@ -568,4 +584,27 @@ type Image struct {
 	URL    string `json:"url"`
 	IsMain bool   `json:"isMain"`
 	IsCDN  bool   `json:"isCDN"`
+}
+
+type Continents struct {
+	Continent []struct {
+		Code      string    `json:"code"`
+		Name      string    `json:"name"`
+		Countries Countries `json:"countries"`
+	} `json:"continent"`
+}
+
+type Countries struct {
+	Country []struct {
+		Code   string `json:"code"`
+		Name   string `json:"name"`
+		Cities Cities `json:"cities"`
+	} `json:"country"`
+}
+
+type Cities struct {
+	City []struct {
+		Code string `json:"code"`
+		Name string `json:"name"`
+	} `json:"city"`
 }

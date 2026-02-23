@@ -18,6 +18,7 @@ const (
 	cancelReservationPath = "/CancelReservation"
 	getRSVNListPath       = "/GetRSVNList"
 	getHotelDetailPath    = "/GetHotelDetail"
+	getDestinationsPath   = "/GetDestinations"
 )
 
 const (
@@ -28,6 +29,7 @@ const (
 	cancelReservationTimeout = 10 * time.Second
 	getRSVNListTimeout       = 10 * time.Second
 	getHotelDetailTimeout    = 10 * time.Second
+	getDestinationsTimeout   = 10 * time.Second
 )
 
 // SearchHotel searches for hotels
@@ -341,6 +343,59 @@ func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDT
 	}()
 
 	var resp GetHotelDetailResponse
+	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
+		if _, ok := err.(*MGError); ok {
+			return nil, err.(*MGError)
+		}
+
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	return &resp, nil
+}
+
+// GetDestinations gets the destinations
+func (c *Client) GetDestinations(ctx context.Context, req GetDestinationsRequestDTO) (*GetDestinationsResponse, *MGError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "GetDestinations")
+	defer span.End()
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    BadRequestError,
+			ErrorMessage: err.Error(),
+		}
+	}
+
+	// Convert the request to the internal model
+	internalReq := req.ToInternalModel(c.config.Credentials)
+
+	// Sanitize the request for logging
+	sanitizedReq, _ := logger.Sanitize(internalReq)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetDestinations request", zap.Any("request", sanitizedReq))
+
+	// Set timeout
+	c.httpClient.SetTimeout(getDestinationsTimeout)
+
+	httpResp, err := c.sendRequest(ctx, internalReq, getDestinationsPath, nil)
+	if err != nil {
+		return nil, &MGError{
+			Status:       false,
+			ErrorCode:    InternalServerError,
+			ErrorMessage: err.Error(),
+		}
+	}
+	defer func() {
+		io.Copy(io.Discard, httpResp.Body)
+		httpResp.Body.Close()
+	}()
+
+	var resp GetDestinationsResponse
 	if err := parseResponseBody(httpResp.Body, &resp); err != nil {
 		if _, ok := err.(*MGError); ok {
 			return nil, err.(*MGError)

@@ -195,3 +195,52 @@ func (dto *GetHotelDetailRequestDTO) ToInternalModel(credentials Credentials) Ge
 		DetailLevel: detailLevel,
 	}
 }
+
+type GetDestinationsRequestDTO struct {
+	Language     *string `json:"Language,omitempty"`     // Optional. Default: EN
+	Continent    *string `json:"Continent,omitempty"`    // Optional. NA, AF, EU, AS, OC, SA
+	FromDateTime *string `json:"FromDateTime,omitempty"` // Optional. Format: YYYY-MM-DD HH:mm:ss
+}
+
+func (dto *GetDestinationsRequestDTO) Validate() error {
+	// Validate continent if provided
+	if dto.Continent != nil {
+		validContinents := map[string]bool{
+			"NA": true,
+			"AF": true,
+			"EU": true,
+			"AS": true,
+			"OC": true,
+			"SA": true,
+		}
+		if !validContinents[*dto.Continent] {
+			return errors.New("invalid continent. Valid values are: NA, AF, EU, AS, OC, SA")
+		}
+	}
+
+	return nil
+}
+
+func (dto *GetDestinationsRequestDTO) ToInternalModel(credentials Credentials) GetDestinationsRequest {
+	language := "EN"
+	if dto.Language != nil {
+		language = *dto.Language
+	}
+
+	continent := ""
+	if dto.Continent != nil {
+		continent = *dto.Continent
+	}
+
+	fromDateTime := ""
+	if dto.FromDateTime != nil {
+		fromDateTime = *dto.FromDateTime
+	}
+
+	return GetDestinationsRequest{
+		Login:        credentials,
+		Language:     language,
+		Continent:    continent,
+		FromDateTime: fromDateTime,
+	}
+}
