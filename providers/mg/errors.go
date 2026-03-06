@@ -26,7 +26,7 @@ const (
 	JRVXML005 MGErrorCode = "JRVXML005"
 
 	// No data matching the request criteria.
-	JRVXML160 MGErrorCode = "JRVXML160"
+	JRVXML060 MGErrorCode = "JRVXML060"
 
 	// Invalid date value.
 	JRVXML011 MGErrorCode = "JRVXML011"
