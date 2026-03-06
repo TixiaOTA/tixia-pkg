@@ -5,22 +5,18 @@ import "errors"
 // --------------------------------- REQUESTS ---------------------------------
 
 type SearchHotelRequestDTO struct {
-	Nationality string `json:"Nationality"`
-	Country     string `json:"Country"`
-	City        string `json:"City"`
-	Hotels      *struct {
-		Code []string `json:"Code"`
-	} `json:"Hotels,omitempty"`
-	CheckIn  string `json:"CheckIn"`
-	CheckOut string `json:"CheckOut"`
-	Rooms    *struct {
-		Room []RoomRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency     string `json:"Currency"`
-	Language     string `json:"Language"`
-	AvailFlag    bool   `json:"AvailFlag"`
-	MaxNoOfHotel int    `json:"MaxNoOfHotel"`
-	DetailLevel  string `json:"DetailLevel"`
+	Nationality  string      `json:"Nationality"`
+	Country      string      `json:"Country"`
+	City         string      `json:"City"`
+	Hotels       *HotelCodes `json:"Hotels,omitempty"`
+	CheckIn      string      `json:"CheckIn"`
+	CheckOut     string      `json:"CheckOut"`
+	Rooms        *RoomList   `json:"Rooms"`
+	Currency     string      `json:"Currency"`
+	Language     string      `json:"Language"`
+	AvailFlag    bool        `json:"AvailFlag"`
+	MaxNoOfHotel int         `json:"MaxNoOfHotel"`
+	DetailLevel  string      `json:"DetailLevel"`
 }
 
 func (dto *SearchHotelRequestDTO) ToInternalModel(credentials Credentials) SearchHotelRequest {
@@ -50,13 +46,11 @@ type RecheckHotelRequestDTO struct {
 	CheckIn     string              `json:"CheckIn"`  // Format: YYYY-MM-DD
 	CheckOut    string              `json:"CheckOut"` // Format: YYYY-MM-DD
 	RoomDetails *RoomDetailsRequest `json:"RoomDetails"`
-	Rooms       struct {
-		Room []RoomRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency    string `json:"Currency"`
-	Language    string `json:"Language,omitempty"`
-	AvailFlag   bool   `json:"AvailFlag,omitempty"`
-	DetailLevel string `json:"DetailLevel,omitempty"`
+	Rooms       RoomList            `json:"Rooms"`
+	Currency    string              `json:"Currency"`
+	Language    string              `json:"Language,omitempty"`
+	AvailFlag   bool                `json:"AvailFlag,omitempty"`
+	DetailLevel string              `json:"DetailLevel,omitempty"`
 }
 
 func (dto *RecheckHotelRequestDTO) ToInternalModel(credentials Credentials) RecheckHotelRequest {
@@ -86,15 +80,13 @@ type BookHotelRequestDTO struct {
 	CheckOut        string             `json:"CheckOut"` // Format: YYYY-MM-DD
 	HotelCode       string             `json:"HotelCode"`
 	RoomDetails     RoomDetailsRequest `json:"RoomDetails"`
-	Rooms           struct {
-		Room []RoomBookingRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency    string `json:"Currency"`
-	Language    string `json:"Language,omitempty"`
-	AvailFlag   bool   `json:"AvailFlag,omitempty"`
-	OnHold      bool   `json:"OnHold,omitempty"`
-	SpecialReq  string `json:"SpecialReq,omitempty"`
-	DetailLevel string `json:"DetailLevel,omitempty"`
+	Rooms           BookingRoomList    `json:"Rooms"`
+	Currency        string             `json:"Currency"`
+	Language        string             `json:"Language,omitempty"`
+	AvailFlag       bool               `json:"AvailFlag,omitempty"`
+	OnHold          bool               `json:"OnHold,omitempty"`
+	SpecialReq      string             `json:"SpecialReq,omitempty"`
+	DetailLevel     string             `json:"DetailLevel,omitempty"`
 }
 
 func (dto *BookHotelRequestDTO) ToInternalModel(credentials Credentials) BookHotelRequest {

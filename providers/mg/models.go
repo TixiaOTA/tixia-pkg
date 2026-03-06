@@ -26,26 +26,56 @@ const (
 	CancelledChargeStatus    MGReservationListStatuses = "CANCELCHARGE"
 )
 
+// --------------------------------- COMMON STRUCTS ---------------------------------
+
+type HotelCodes struct {
+	Code []string `json:"Code"`
+}
+
+type RoomList struct {
+	Room []RoomRequest `json:"Room"`
+}
+
+type BookingRoomList struct {
+	Room []RoomBookingRequest `json:"Room"`
+}
+
+// --------------------------------- RESPONSE STRUCTS ---------------------------------
+
+type HotelList struct {
+	Hotel []Hotel `json:"Hotel"`
+}
+
+type RecheckHotelWrapper struct {
+	Hotel HotelRecheckResponse `json:"hotel"`
+}
+
+type PaxList struct {
+	Pax []Pax `json:"Pax"`
+}
+
+type ReservationDetail struct {
+	MGBookingID     string `json:"mgBookingID"`
+	AgencyBookingID string `json:"agencyBookingID"`
+	Status          string `json:"status"`
+}
+
 // --------------------------------- REQUESTS ---------------------------------
 
 type SearchHotelRequest struct {
-	Login       Credentials `json:"Login"`
-	Nationality string      `json:"Nationality"`
-	Country     string      `json:"Country"`
-	City        string      `json:"City"`
-	Hotels      *struct {
-		Code []string `json:"Code"`
-	} `json:"Hotels,omitempty"`
-	CheckIn  string `json:"CheckIn"`
-	CheckOut string `json:"CheckOut"`
-	Rooms    *struct {
-		Room []RoomRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency     string `json:"Currency"`
-	Language     string `json:"Language"`
-	AvailFlag    bool   `json:"AvailFlag"`
-	MaxNoOfHotel int    `json:"MaxNoOfHotel"`
-	DetailLevel  string `json:"DetailLevel"`
+	Login        Credentials `json:"Login"`
+	Nationality  string      `json:"Nationality"`
+	Country      string      `json:"Country"`
+	City         string      `json:"City"`
+	Hotels       *HotelCodes `json:"Hotels,omitempty"`
+	CheckIn      string      `json:"CheckIn"`
+	CheckOut     string      `json:"CheckOut"`
+	Rooms        *RoomList   `json:"Rooms"`
+	Currency     string      `json:"Currency"`
+	Language     string      `json:"Language"`
+	AvailFlag    bool        `json:"AvailFlag"`
+	MaxNoOfHotel int         `json:"MaxNoOfHotel"`
+	DetailLevel  string      `json:"DetailLevel"`
 }
 
 type RecheckHotelRequest struct {
@@ -58,13 +88,11 @@ type RecheckHotelRequest struct {
 	CheckIn     string              `json:"CheckIn"`  // Format: YYYY-MM-DD
 	CheckOut    string              `json:"CheckOut"` // Format: YYYY-MM-DD
 	RoomDetails *RoomDetailsRequest `json:"RoomDetails"`
-	Rooms       struct {
-		Room []RoomRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency    string `json:"Currency"`
-	Language    string `json:"Language,omitempty"`
-	AvailFlag   bool   `json:"AvailFlag,omitempty"`
-	DetailLevel string `json:"DetailLevel,omitempty"`
+	Rooms       RoomList            `json:"Rooms"`
+	Currency    string              `json:"Currency"`
+	Language    string              `json:"Language,omitempty"`
+	AvailFlag   bool                `json:"AvailFlag,omitempty"`
+	DetailLevel string              `json:"DetailLevel,omitempty"`
 }
 
 // BookHotelRequest represents the request structure for booking a hotel
@@ -77,15 +105,13 @@ type BookHotelRequest struct {
 	CheckOut        string             `json:"CheckOut"` // Format: YYYY-MM-DD
 	HotelCode       string             `json:"HotelCode"`
 	RoomDetails     RoomDetailsRequest `json:"RoomDetails"`
-	Rooms           struct {
-		Room []RoomBookingRequest `json:"Room"`
-	} `json:"Rooms"`
-	Currency    string `json:"Currency"`
-	Language    string `json:"Language,omitempty"`
-	AvailFlag   bool   `json:"AvailFlag,omitempty"`
-	OnHold      bool   `json:"OnHold,omitempty"`
-	SpecialReq  string `json:"SpecialReq,omitempty"`
-	DetailLevel string `json:"DetailLevel,omitempty"`
+	Rooms           BookingRoomList    `json:"Rooms"`
+	Currency        string             `json:"Currency"`
+	Language        string             `json:"Language,omitempty"`
+	AvailFlag       bool               `json:"AvailFlag,omitempty"`
+	OnHold          bool               `json:"OnHold,omitempty"`
+	SpecialReq      string             `json:"SpecialReq,omitempty"`
+	DetailLevel     string             `json:"DetailLevel,omitempty"`
 }
 
 // GetRSVNDetailsRequest represents the request structure for getting the RSVN details
@@ -124,20 +150,18 @@ type GetDestinationsRequest struct {
 // --------------------------------- RESPONSES ---------------------------------
 
 type SearchHotelResponse struct {
-	CheckIn      string  `json:"checkIn"`
-	CheckOut     string  `json:"checkOut"`
-	Currency     string  `json:"currency"`
-	ErrorCode    *string `json:"errorCode"`
-	ErrorMessage *string `json:"errorMessage"`
-	Hotels       struct {
-		Hotel []Hotel `json:"Hotel"`
-	} `json:"hotels"`
-	NoOfHotels   int     `json:"noOfHotels"`
-	ResponseTime int     `json:"responseTime"`
-	SessionID    string  `json:"sessionID"`
-	Status       bool    `json:"status"`
-	XSD          *string `json:"xsd"`
-	XSI          *string `json:"xsi"`
+	CheckIn      string    `json:"checkIn"`
+	CheckOut     string    `json:"checkOut"`
+	Currency     string    `json:"currency"`
+	ErrorCode    *string   `json:"errorCode"`
+	ErrorMessage *string   `json:"errorMessage"`
+	Hotels       HotelList `json:"hotels"`
+	NoOfHotels   int       `json:"noOfHotels"`
+	ResponseTime int       `json:"responseTime"`
+	SessionID    string    `json:"sessionID"`
+	Status       bool      `json:"status"`
+	XSD          *string   `json:"xsd"`
+	XSI          *string   `json:"xsi"`
 }
 
 type RecheckHotelResponse struct {
@@ -151,9 +175,7 @@ type RecheckHotelResponse struct {
 	ErrorMessage *string `json:"errorMessage"`
 	Nationality  *string `json:"nationality"`
 
-	Hotels struct {
-		Hotel HotelRecheckResponse `json:"hotel"`
-	} `json:"hotels,omitempty"`
+	Hotels RecheckHotelWrapper `json:"hotels,omitempty"`
 }
 
 type BookHotelResponse struct {
@@ -164,14 +186,10 @@ type BookHotelResponse struct {
 }
 
 type GetRSVNListResponse struct {
-	Status             bool   `json:"status"`
-	ResponseTime       int    `json:"responseTime"`
-	SessionID          string `json:"sessionID"`
-	ReservationDetails []struct {
-		MGBookingID     string `json:"mgBookingID"`
-		AgencyBookingID string `json:"agencyBookingID"`
-		Status          string `json:"status"`
-	}
+	Status             bool                `json:"status"`
+	ResponseTime       int                 `json:"responseTime"`
+	SessionID          string              `json:"sessionID"`
+	ReservationDetails []ReservationDetail `json:"reservationDetails"`
 }
 
 // GetRSVNDetailsResponse represents the response structure for getting the RSVN details
@@ -390,14 +408,12 @@ type HotelRecheckResponse struct {
 }
 
 type RoomBookingRequest struct {
-	PaxDetails struct {
-		Pax []Pax `json:"Pax"`
-	} `json:"PaxDetails"`
-	RoomNo     uint   `json:"RoomNo"`
-	NoOfAdults uint   `json:"NoOfAdults"`
-	NoOfChild  uint   `json:"NoOfChild"`
-	ExtraBed   bool   `json:"ExtraBed"`
-	RateKey    string `json:"RateKey"`
+	PaxDetails PaxList `json:"PaxDetails"`
+	RoomNo     uint    `json:"RoomNo"`
+	NoOfAdults uint    `json:"NoOfAdults"`
+	NoOfChild  uint    `json:"NoOfChild"`
+	ExtraBed   bool    `json:"ExtraBed"`
+	RateKey    string  `json:"RateKey"`
 }
 
 type BookingDetails struct {
