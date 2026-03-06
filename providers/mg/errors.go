@@ -24,4 +24,7 @@ const (
 
 	// Invalid HotelCode.
 	JRVXML005 MGErrorCode = "JRVXML005"
+
+	// No data matching the request criteria.
+	JRVXML160 MGErrorCode = "JRVXML160"
 )
