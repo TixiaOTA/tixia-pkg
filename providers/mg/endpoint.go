@@ -3,7 +3,6 @@ package mg
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/TixiaOTA/tixia-pkg/logger"
 	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
@@ -21,17 +20,6 @@ const (
 	getDestinationsPath   = "/GetDestinations"
 )
 
-const (
-	searchHotelTimeout       = 10 * time.Second
-	recheckHotelTimeout      = 10 * time.Second
-	bookHotelTimeout         = 120 * time.Second
-	getRSVNDetailsTimeout    = 10 * time.Second
-	cancelReservationTimeout = 10 * time.Second
-	getRSVNListTimeout       = 10 * time.Second
-	getHotelDetailTimeout    = 10 * time.Second
-	getDestinationsTimeout   = 10 * time.Second
-)
-
 // SearchHotel searches for hotels
 func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*SearchHotelResponse, *MGError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "mg", "SearchHotel")
@@ -43,9 +31,6 @@ func (c *Client) SearchHotel(ctx context.Context, req SearchHotelRequestDTO) (*S
 	// Sanitize the request for logging
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SearchHotel request", zap.Any("request", sanitizedReq))
-
-	// Set timeout
-	c.httpClient.SetTimeout(searchHotelTimeout)
 
 	httpResp, err := c.sendRequest(ctx, internalReq, searchHotelPath, nil)
 	if err != nil {
@@ -88,9 +73,6 @@ func (c *Client) RecheckHotel(ctx context.Context, req RecheckHotelRequestDTO) (
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting RecheckHotel request", zap.Any("request", sanitizedReq))
 
-	// Set timeout
-	c.httpClient.SetTimeout(recheckHotelTimeout)
-
 	httpResp, err := c.sendRequest(ctx, internalReq, recheckHotelPath, nil)
 	if err != nil {
 		return nil, &MGError{
@@ -131,10 +113,6 @@ func (c *Client) BookHotel(ctx context.Context, req BookHotelRequestDTO) (*BookH
 	// Sanitize the request for logging
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting BookHotel request", zap.Any("request", sanitizedReq))
-
-	// Set timeout
-	c.httpClient.SetTimeout(bookHotelTimeout)
-	c.httpClient.SetMaxRetries(0) // No retries for BookHotel
 
 	httpResp, err := c.sendRequest(ctx, internalReq, bookHotelPath, nil)
 	if err != nil {
@@ -177,9 +155,6 @@ func (c *Client) GetRSVNDetails(ctx context.Context, req GetRSVNDetailsRequestDT
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetRSVNDetails request", zap.Any("request", sanitizedReq))
 
-	// Set timeout
-	c.httpClient.SetTimeout(getRSVNDetailsTimeout)
-
 	httpResp, err := c.sendRequest(ctx, internalReq, getRSVNDetailsPath, nil)
 	if err != nil {
 		return nil, &MGError{
@@ -220,9 +195,6 @@ func (c *Client) CancelReservation(ctx context.Context, req CancelReservationReq
 	// Sanitize the request for logging
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CancelReservation request", zap.Any("request", sanitizedReq))
-
-	// Set timeout
-	c.httpClient.SetTimeout(cancelReservationTimeout)
 
 	httpResp, err := c.sendRequest(ctx, internalReq, cancelReservationPath, nil)
 	if err != nil {
@@ -271,9 +243,6 @@ func (c *Client) GetRSVNList(ctx context.Context, req GetRSVNListRequestDTO) (*G
 	// Sanitize the request for logging
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetRSVNList request", zap.Any("request", sanitizedReq))
-
-	// Set timeout
-	c.httpClient.SetTimeout(getRSVNListTimeout)
 
 	httpResp, err := c.sendRequest(ctx, internalReq, getRSVNListPath, nil)
 	if err != nil {
@@ -326,9 +295,6 @@ func (c *Client) GetHotelDetail(ctx context.Context, req GetHotelDetailRequestDT
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetHotelDetail request", zap.Any("request", sanitizedReq))
 
-	// Set timeout
-	c.httpClient.SetTimeout(getHotelDetailTimeout)
-
 	httpResp, err := c.sendRequest(ctx, internalReq, getHotelDetailPath, nil)
 	if err != nil {
 		return nil, &MGError{
@@ -378,9 +344,6 @@ func (c *Client) GetDestinations(ctx context.Context, req GetDestinationsRequest
 	// Sanitize the request for logging
 	sanitizedReq, _ := logger.Sanitize(internalReq)
 	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetDestinations request", zap.Any("request", sanitizedReq))
-
-	// Set timeout
-	c.httpClient.SetTimeout(getDestinationsTimeout)
 
 	httpResp, err := c.sendRequest(ctx, internalReq, getDestinationsPath, nil)
 	if err != nil {

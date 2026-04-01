@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/TixiaOTA/tixia-pkg/http/client"
+	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
+	"go.uber.org/zap"
 )
 
 func buildHeaders(additionalHeaders *map[string]string) map[string]string {
@@ -25,6 +27,8 @@ func buildHeaders(additionalHeaders *map[string]string) map[string]string {
 }
 
 func (c *Client) sendRequest(ctx context.Context, req any, path string, headers *map[string]string) (*http.Response, error) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "helpers", "mg", "sendRequest")
+	defer span.End()
 	headersMap := buildHeaders(headers)
 
 	httpResp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
@@ -33,6 +37,7 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 		Headers: &headersMap,
 	})
 	if err != nil {
+		c.logger.WithTrace(ctx, currentSpanId).Error("HTTP request error", zap.Error(err))
 		return nil, err
 	}
 
@@ -40,6 +45,8 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 	if httpResp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(httpResp.Body)
 		defer httpResp.Body.Close()
+
+		c.logger.WithTrace(ctx, currentSpanId).Error("HTTP request error", zap.Int("status_code", httpResp.StatusCode), zap.ByteString("body", bodyBytes))
 
 		return nil, &APIError{
 			Code:    httpResp.StatusCode,
