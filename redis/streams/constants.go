@@ -123,3 +123,13 @@ const (
 	TopicHotelPopulationRequested     string = "hotel.population.requested"
 	TopicHotelCityPopulationRequested string = "hotel.city.population.requested"
 )
+
+// Booking events
+const (
+	// This event is emitted when a booking is created and the schedule is set to expire after a certain time.
+	TopicBookingScheduleExpiredRequested string = "booking.schedule.expired.requested"
+	TopicBookingScheduleExpiredResults   string = "booking.schedule.expired.results"
+
+	// This event is emitted when a booking is cancelled and the schedule is to be removed from the system.
+	TopicBookingScheduleCancelled string = "booking.schedule.cancelled"
+)
