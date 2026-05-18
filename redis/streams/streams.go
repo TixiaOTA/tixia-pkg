@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
 	"github.com/TixiaOTA/tixia-pkg/redis/client"
 	"github.com/TixiaOTA/tixia-pkg/redis/redisutil"
+	"github.com/TixiaOTA/tixia-pkg/tixiacompress"
 	"go.opentelemetry.io/otel/codes"
 
 	"github.com/redis/go-redis/v9"
@@ -45,7 +47,7 @@ type StreamConfig struct {
 
 	// Read error backoff settings
 	ReadErrorBaseDelay time.Duration `envconfig:"REDIS_READ_BASE_DELAY" default:"200ms"`
-	ReadErrorMaxDelay  time.Duration `envconfig:"REDIS_READ_MAX_DELAY" default:"5s"`
+	ReadErrorMaxDelay  time.Duration `envconfig:"REDIS_READ_MAX_DELAY" default:"30s"`
 
 	// Reconnection settings
 	PublishRetries   int           `envconfig:"REDIS_PUBLISH_RETRIES" default:"5"`
@@ -56,6 +58,9 @@ type StreamConfig struct {
 	StreamTrimmingEnabled bool          `envconfig:"REDIS_STREAM_TRIMMING_ENABLED" default:"false"`
 	MaxStreamLength       int64         `envconfig:"REDIS_MAX_STREAM_LENGTH" default:"1000"`      // Maximum number of entries per stream
 	StreamRetentionPeriod time.Duration `envconfig:"REDIS_STREAM_RETENTION_PERIOD" default:"24h"` // How long to keep entries
+
+	// Compression settings
+	CompressedEventTypes map[string]bool `envconfig:"COMPRESSED_EVENT_TYPES"` // Event types that should be compressed
 }
 
 // EventHandler is a function that processes events
@@ -142,8 +147,6 @@ func (sm *StreamManager) TrimStreamWithCustomLimits(ctx context.Context, streamN
 func (sm *StreamManager) Close() error {
 	sm.logger.Info("Shutting down stream manager...")
 
-	sm.mu.Unlock()
-
 	// Close Redis client connection
 	if sm.client != nil {
 		if err := sm.client.Close(); err != nil {
@@ -188,6 +191,34 @@ func (sm *StreamManager) PublishEvent(ctx context.Context, event Event) error {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
+	// Check if this event type should be compressed
+	shouldCompress := false
+	if sm.config.CompressedEventTypes != nil {
+		shouldCompress = sm.config.CompressedEventTypes[event.Type]
+	}
+
+	var eventDataStr string
+	var compressed bool
+
+	if shouldCompress {
+		// Compress the event data
+		compressedData, err := tixiacompress.CompressToBase64(eventData)
+		if err != nil {
+			return fmt.Errorf("failed to compress event data: %w", err)
+		}
+		eventDataStr = compressedData
+		compressed = true
+		sm.logger.Debug("Event compressed",
+			zap.String("event_type", event.Type),
+			zap.Int("original_size", len(eventData)),
+			zap.Int("compressed_size", len(compressedData)),
+		)
+	} else {
+		// Use uncompressed data
+		eventDataStr = string(eventData)
+		compressed = false
+	}
+
 	// Reconnection configuration for publishing
 	maxRetries := sm.config.PublishRetries
 	baseDelay := sm.config.PublishBaseDelay
@@ -201,8 +232,9 @@ func (sm *StreamManager) PublishEvent(ctx context.Context, event Event) error {
 		result := sm.client.XAdd(ctx, &redis.XAddArgs{
 			Stream: streamName,
 			Values: map[string]interface{}{
-				"event":        string(eventData),
+				"event":        eventDataStr,
 				"traceContext": traceJSON,
+				"compressed":   compressed,
 			},
 		})
 
@@ -306,6 +338,7 @@ func (sm *StreamManager) StartConsumer(ctx context.Context, streamName string, t
 
 	currentDelay := sm.config.ReadErrorBaseDelay
 	maxDelay := sm.config.ReadErrorMaxDelay
+	loggedDisconnected := false
 
 	for {
 		select {
@@ -330,14 +363,31 @@ func (sm *StreamManager) StartConsumer(ctx context.Context, streamName string, t
 					return ctx.Err()
 				case errors.Is(err, context.DeadlineExceeded):
 					// Normal when Block elapses with no messages
-					sm.logger.Debug("Read block deadline reached; continuing", zap.String("stream", streamName))
 					continue
+				case strings.Contains(err.Error(), "NOGROUP"):
+					// Consumer group was lost (e.g., Redis restart wiped groups).
+					if grpErr := sm.CreateConsumerGroup(ctx, streamName); grpErr != nil {
+						sm.logger.Error("Failed to recreate consumer group", zap.Error(grpErr), zap.String("stream", streamName))
+						// Fall through to backoff
+					} else {
+						sm.logger.Info("Consumer group recreated", zap.String("stream", streamName))
+						continue
+					}
 				default:
-					sm.logger.Warn("Error reading from stream; backing off",
-						zap.Error(err),
-						zap.String("stream", streamName),
-						zap.Duration("backoff", currentDelay),
-					)
+					if !loggedDisconnected {
+						loggedDisconnected = true
+						currentDelay = sm.config.ReadErrorBaseDelay
+						sm.logger.Error("Redis connection lost while reading stream",
+							zap.Error(err),
+							zap.String("stream", streamName),
+						)
+					} else {
+						sm.logger.Debug("Redis still unavailable, backing off before retry",
+							zap.Error(err),
+							zap.String("stream", streamName),
+							zap.Duration("backoff", currentDelay),
+						)
+					}
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
@@ -352,6 +402,11 @@ func (sm *StreamManager) StartConsumer(ctx context.Context, streamName string, t
 					currentDelay += jitter
 					continue
 				}
+			}
+
+			if loggedDisconnected {
+				loggedDisconnected = false
+				sm.logger.Info("Redis connection restored", zap.String("stream", streamName))
 			}
 
 			for _, stream := range streams {
@@ -401,6 +456,7 @@ func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamName
 
 	currentDelay := sm.config.ReadErrorBaseDelay
 	maxDelay := sm.config.ReadErrorMaxDelay
+	loggedDisconnected := false
 
 	for {
 		select {
@@ -424,10 +480,33 @@ func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamName
 					sm.logger.Info("Multi-stream consumer stopping due to context cancellation")
 					return ctx.Err()
 				case errors.Is(err, context.DeadlineExceeded):
-					sm.logger.Debug("Multi-stream read block deadline reached; continuing")
+					// Normal when Block elapses with no messages
+					continue
+				case strings.Contains(err.Error(), "NOGROUP"):
+					// Consumer group was lost (e.g., Redis restart wiped groups).
+					for _, s := range streamNames {
+						if grpErr := sm.CreateConsumerGroup(ctx, s); grpErr != nil {
+							sm.logger.Error("Failed to recreate consumer group", zap.Error(grpErr), zap.String("stream", s))
+							continue
+						}
+						sm.logger.Info("Consumer group recreated", zap.String("stream", s))
+					}
 					continue
 				default:
-					sm.logger.Warn("Error reading from multiple streams; backing off", zap.Error(err), zap.Duration("backoff", currentDelay))
+					if !loggedDisconnected {
+						loggedDisconnected = true
+						currentDelay = sm.config.ReadErrorBaseDelay
+						sm.logger.Error("Redis connection lost while reading from multiple streams",
+							zap.Error(err),
+							zap.Strings("streams", streamNames),
+						)
+					} else {
+						sm.logger.Debug("Redis still unavailable, backing off before retry",
+							zap.Error(err),
+							zap.Strings("streams", streamNames),
+							zap.Duration("backoff", currentDelay),
+						)
+					}
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
@@ -441,6 +520,11 @@ func (sm *StreamManager) StartConsumerForStreams(ctx context.Context, streamName
 					currentDelay += jitter
 					continue
 				}
+			}
+
+			if loggedDisconnected {
+				loggedDisconnected = false
+				sm.logger.Info("Redis connection restored", zap.Strings("streams", streamNames))
 			}
 
 			for _, stream := range results {
@@ -481,8 +565,30 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 		return fmt.Errorf("invalid event data format")
 	}
 
+	// Check if the event is compressed (for backward compatibility, default to false)
+	compressed := false
+	if compressedVal, exists := message.Values["compressed"]; exists {
+		if compressedVal == "1" {
+			compressed = true
+		}
+	}
+
+	var eventDataBytes []byte
+	var err error
+
+	if compressed {
+		// Decompress the event data
+		eventDataBytes, err = tixiacompress.DecompressFromBase64(eventData)
+		if err != nil {
+			return fmt.Errorf("failed to decompress event data: %w", err)
+		}
+	} else {
+		// Use uncompressed data
+		eventDataBytes = []byte(eventData)
+	}
+
 	var event Event
-	if err := json.Unmarshal([]byte(eventData), &event); err != nil {
+	if err := json.Unmarshal(eventDataBytes, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
@@ -541,7 +647,7 @@ func (sm *StreamManager) processMessage(ctx context.Context, message redis.XMess
 
 	// Always acknowledge the message with a fresh context
 	ackCtx, ackCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	_, err := sm.client.XAck(ackCtx, streamName, sm.config.ConsumerGroup, message.ID).Result()
+	_, err = sm.client.XAck(ackCtx, streamName, sm.config.ConsumerGroup, message.ID).Result()
 	ackCancel()
 	if err != nil {
 		return fmt.Errorf("failed to acknowledge message: %w", err)

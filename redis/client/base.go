@@ -41,6 +41,11 @@ func NewBaseRedisClient(config BaseRedisConfig, logger *zap.Logger) (*BaseRedisC
 		opts.WriteTimeout = config.WriteTimeout
 	}
 
+	opts.OnConnect = func(ctx context.Context, cn *redis.Conn) error {
+		logger.Info("Redis connection established", zap.String("addr", opts.Addr))
+		return nil
+	}
+
 	client := redis.NewClient(opts)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
