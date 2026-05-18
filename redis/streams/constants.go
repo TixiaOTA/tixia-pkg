@@ -133,3 +133,8 @@ const (
 	// This event is emitted when a booking is cancelled and the schedule is to be removed from the system.
 	TopicBookingScheduleCancelled string = "booking.schedule.cancelled"
 )
+
+var CompressedEventTopics = map[string]bool{
+	TopicFlightSearchResults: true,
+	TopicHotelSearchResults:  true,
+}
