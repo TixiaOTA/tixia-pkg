@@ -2,6 +2,7 @@ package xendit
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -15,7 +16,10 @@ const SessionTypePay SessionType = "PAY"
 
 type SessionMode string
 
-const SessionModePaymentLink SessionMode = "PAYMENT_LINK"
+const (
+	SessionModePaymentLink SessionMode = "PAYMENT_LINK"
+	SessionModeComponents  SessionMode = "COMPONENTS"
+)
 
 type CaptureMethod string
 
@@ -60,25 +64,26 @@ var validCountries = map[string]struct{}{
 // --------------------------------- REQUESTS ---------------------------------
 
 // CreateSessionRequest is the request structure for CreateSession.
-// Scoped to session_type=PAY and mode=PAYMENT_LINK.
+// Scoped to session_type=PAY, mode=PAYMENT_LINK or COMPONENTS.
 type CreateSessionRequest struct {
-	ReferenceID            string            `json:"reference_id"`
-	Currency               string            `json:"currency"`
-	Amount                 float64           `json:"amount"`
-	Country                string            `json:"country"`
-	SessionType            SessionType       `json:"session_type"`
-	Mode                   SessionMode       `json:"mode"`
-	CustomerID             *string           `json:"customer_id,omitempty"`
-	Customer               *CustomerDetails  `json:"customer,omitempty"`
-	CaptureMethod          *CaptureMethod    `json:"capture_method,omitempty"`
-	Description            *string           `json:"description,omitempty"`
-	SuccessReturnURL       *string           `json:"success_return_url,omitempty"`
-	CancelReturnURL        *string           `json:"cancel_return_url,omitempty"`
-	Locale                 *string           `json:"locale,omitempty"`
-	Metadata               map[string]string `json:"metadata,omitempty"`
-	Items                  []SessionItem     `json:"items,omitempty"`
-	AllowedPaymentChannels []string          `json:"allowed_payment_channels,omitempty"`
-	ExpiresAt              *time.Time        `json:"expires_at,omitempty"`
+	ReferenceID             string                   `json:"reference_id"`
+	Currency                string                   `json:"currency"`
+	Amount                  float64                  `json:"amount"`
+	Country                 string                   `json:"country"`
+	SessionType             SessionType              `json:"session_type"`
+	Mode                    SessionMode              `json:"mode"`
+	CustomerID              *string                  `json:"customer_id,omitempty"`
+	Customer                *CustomerDetails         `json:"customer,omitempty"`
+	CaptureMethod           *CaptureMethod           `json:"capture_method,omitempty"`
+	Description             *string                  `json:"description,omitempty"`
+	SuccessReturnURL        *string                  `json:"success_return_url,omitempty"`
+	CancelReturnURL         *string                  `json:"cancel_return_url,omitempty"`
+	Locale                  *string                  `json:"locale,omitempty"`
+	Metadata                map[string]string        `json:"metadata,omitempty"`
+	Items                   []SessionItem            `json:"items,omitempty"`
+	AllowedPaymentChannels  []string                 `json:"allowed_payment_channels,omitempty"`
+	ExpiresAt               *time.Time               `json:"expires_at,omitempty"`
+	ComponentsConfiguration *ComponentsConfiguration `json:"components_configuration,omitempty"`
 }
 
 func (r *CreateSessionRequest) Validate() error {
@@ -118,8 +123,21 @@ func (r *CreateSessionRequest) Validate() error {
 		return errors.New("mode is required")
 	}
 
-	if r.Mode != SessionModePaymentLink {
-		return errors.New("mode must be PAYMENT_LINK")
+	switch r.Mode {
+	case SessionModePaymentLink:
+		if r.ComponentsConfiguration != nil {
+			return errors.New("components_configuration is not allowed when mode is PAYMENT_LINK")
+		}
+	case SessionModeComponents:
+		if r.ComponentsConfiguration == nil {
+			return errors.New("components_configuration is required when mode is COMPONENTS")
+		}
+
+		if err := r.ComponentsConfiguration.Validate(); err != nil {
+			return err
+		}
+	default:
+		return errors.New("mode must be PAYMENT_LINK or COMPONENTS")
 	}
 
 	if r.CaptureMethod != nil {
@@ -151,6 +169,25 @@ func (r *CreateSessionRequest) Validate() error {
 	for i := range r.Items {
 		if err := r.Items[i].Validate(); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// ComponentsConfiguration configures CORS origins for Xendit Component SDK sessions.
+type ComponentsConfiguration struct {
+	Origins []string `json:"origins"`
+}
+
+func (c *ComponentsConfiguration) Validate() error {
+	if len(c.Origins) == 0 {
+		return errors.New("components_configuration.origins is required")
+	}
+
+	for i, origin := range c.Origins {
+		if err := validateHTTPSOrigin(origin, "components_configuration.origins"); err != nil {
+			return fmt.Errorf("components_configuration.origins[%d]: %w", i, err)
 		}
 	}
 
@@ -198,17 +235,17 @@ func (d *IndividualDetail) Validate() error {
 
 // SessionItem describes an item attached to a payment session.
 type SessionItem struct {
-	ReferenceID   string          `json:"reference_id"`
-	Type          SessionItemType `json:"type"`
-	Name          string          `json:"name"`
-	NetUnitAmount float64         `json:"net_unit_amount"`
-	Quantity      int             `json:"quantity"`
-	Category      string          `json:"category"`
-	Currency      *string         `json:"currency,omitempty"`
-	URL           *string         `json:"url,omitempty"`
-	ImageURL      *string         `json:"image_url,omitempty"`
-	Subcategory   *string         `json:"subcategory,omitempty"`
-	Description   *string         `json:"description,omitempty"`
+	ReferenceID   string            `json:"reference_id"`
+	Type          SessionItemType   `json:"type"`
+	Name          string            `json:"name"`
+	NetUnitAmount float64           `json:"net_unit_amount"`
+	Quantity      int               `json:"quantity"`
+	Category      string            `json:"category"`
+	Currency      *string           `json:"currency,omitempty"`
+	URL           *string           `json:"url,omitempty"`
+	ImageURL      *string           `json:"image_url,omitempty"`
+	Subcategory   *string           `json:"subcategory,omitempty"`
+	Description   *string           `json:"description,omitempty"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
 }
 
@@ -269,35 +306,55 @@ func validateHTTPSURL(value *string, fieldName string) error {
 	return nil
 }
 
+func validateHTTPSOrigin(value string, fieldName string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return errors.New(fieldName + " must not be empty")
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return errors.New("must be a valid URL")
+	}
+
+	if parsed.Scheme != "https" {
+		return errors.New("must use HTTPS")
+	}
+
+	return nil
+}
+
 // --------------------------------- RESPONSES ---------------------------------
 
 // CreateSessionResponse is the response structure for CreateSession.
 type CreateSessionResponse struct {
-	PaymentSessionID       string            `json:"payment_session_id"`
-	Created                time.Time         `json:"created"`
-	Updated                time.Time         `json:"updated"`
-	ReferenceID            string            `json:"reference_id"`
-	CustomerID             *string           `json:"customer_id"`
-	SessionType            SessionType       `json:"session_type"`
-	AllowSavePaymentMethod *string           `json:"allow_save_payment_method"`
-	Currency               string            `json:"currency"`
-	Amount                 float64           `json:"amount"`
-	Country                string            `json:"country"`
-	Mode                   SessionMode       `json:"mode"`
-	CaptureMethod          *CaptureMethod    `json:"capture_method"`
-	ChannelProperties      map[string]any    `json:"channel_properties"`
-	AllowedPaymentChannels []string          `json:"allowed_payment_channels"`
-	ExpiresAt              *time.Time        `json:"expires_at"`
-	Locale                 *string           `json:"locale"`
-	Metadata               map[string]string `json:"metadata"`
-	Description            *string           `json:"description"`
-	Items                  []SessionItem     `json:"items"`
-	SuccessReturnURL       *string           `json:"success_return_url"`
-	CancelReturnURL        *string           `json:"cancel_return_url"`
-	Status                 string            `json:"status"`
-	PaymentLinkURL         *string           `json:"payment_link_url"`
-	PaymentTokenID         *string           `json:"payment_token_id"`
-	PaymentID              *string           `json:"payment_id"`
-	PaymentRequestID       *string           `json:"payment_request_id"`
-	BusinessID             string            `json:"business_id"`
+	PaymentSessionID        string                   `json:"payment_session_id"`
+	Created                 time.Time                `json:"created"`
+	Updated                 time.Time                `json:"updated"`
+	ReferenceID             string                   `json:"reference_id"`
+	CustomerID              *string                  `json:"customer_id"`
+	SessionType             SessionType              `json:"session_type"`
+	AllowSavePaymentMethod  *string                  `json:"allow_save_payment_method"`
+	Currency                string                   `json:"currency"`
+	Amount                  float64                  `json:"amount"`
+	Country                 string                   `json:"country"`
+	Mode                    SessionMode              `json:"mode"`
+	CaptureMethod           *CaptureMethod           `json:"capture_method"`
+	ChannelProperties       map[string]any           `json:"channel_properties"`
+	AllowedPaymentChannels  []string                 `json:"allowed_payment_channels"`
+	ExpiresAt               *time.Time               `json:"expires_at"`
+	Locale                  *string                  `json:"locale"`
+	Metadata                map[string]string        `json:"metadata"`
+	Description             *string                  `json:"description"`
+	Items                   []SessionItem            `json:"items"`
+	SuccessReturnURL        *string                  `json:"success_return_url"`
+	CancelReturnURL         *string                  `json:"cancel_return_url"`
+	Status                  string                   `json:"status"`
+	PaymentLinkURL          *string                  `json:"payment_link_url"`
+	PaymentTokenID          *string                  `json:"payment_token_id"`
+	PaymentID               *string                  `json:"payment_id"`
+	PaymentRequestID        *string                  `json:"payment_request_id"`
+	BusinessID              string                   `json:"business_id"`
+	ComponentsSDKKey        *string                  `json:"components_sdk_key"`
+	ComponentsConfiguration *ComponentsConfiguration `json:"components_configuration"`
 }
