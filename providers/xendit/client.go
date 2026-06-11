@@ -20,10 +20,10 @@ type Config struct {
 }
 
 type Client struct {
-	config         Config
-	httpClient     *client.HTTPClient
-	logger         *logger.Logger
-	authHeader     string
+	config     Config
+	httpClient *client.HTTPClient
+	logger     *logger.Logger
+	authHeader string
 }
 
 func New(config Config, logger *logger.Logger) (*Client, error) {
