@@ -84,6 +84,103 @@ func (c *Client) sendRequest(ctx context.Context, req any, path string, headers 
 	return httpResp, nil
 }
 
+func (c *Client) sendGetRequest(ctx context.Context, path string, headers *map[string]string) (*http.Response, error) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "xendit", "sendGetRequest")
+	defer span.End()
+
+	headersMap := c.buildHeaders(headers)
+
+	httpResp, err := c.httpClient.Get(ctx, client.GetRequest{
+		Path:    path,
+		Headers: &headersMap,
+	})
+	if err != nil {
+		c.logger.WithTrace(ctx, currentSpanId).Error("Error sending GET request",
+			zap.String("path", path),
+			zap.Error(err),
+		)
+
+		return nil, &APIError{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		}
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		defer httpResp.Body.Close()
+
+		c.logger.WithTrace(ctx, currentSpanId).Error("HTTP GET request error",
+			zap.String("path", path),
+			zap.Int("status_code", httpResp.StatusCode),
+			zap.ByteString("body", bodyBytes),
+		)
+
+		var xenditErr XenditError
+		if err := json.Unmarshal(bodyBytes, &xenditErr); err != nil || xenditErr.ErrorCode == "" {
+			return nil, &XenditError{
+				ErrorCode:  InternalServerError,
+				Message:    string(bodyBytes),
+				HTTPStatus: httpResp.StatusCode,
+			}
+		}
+
+		xenditErr.HTTPStatus = httpResp.StatusCode
+		return nil, &xenditErr
+	}
+
+	return httpResp, nil
+}
+
+func (c *Client) sendPostRequest(ctx context.Context, path string, headers *map[string]string) (*http.Response, error) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "xendit", "sendPostRequest")
+	defer span.End()
+
+	headersMap := c.buildHeaders(headers)
+
+	httpResp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
+		Path:    path,
+		Body:    struct{}{},
+		Headers: &headersMap,
+	})
+	if err != nil {
+		c.logger.WithTrace(ctx, currentSpanId).Error("Error sending POST request",
+			zap.String("path", path),
+			zap.Error(err),
+		)
+
+		return nil, &APIError{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		}
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(httpResp.Body)
+		defer httpResp.Body.Close()
+
+		c.logger.WithTrace(ctx, currentSpanId).Error("HTTP POST request error",
+			zap.String("path", path),
+			zap.Int("status_code", httpResp.StatusCode),
+			zap.ByteString("body", bodyBytes),
+		)
+
+		var xenditErr XenditError
+		if err := json.Unmarshal(bodyBytes, &xenditErr); err != nil || xenditErr.ErrorCode == "" {
+			return nil, &XenditError{
+				ErrorCode:  InternalServerError,
+				Message:    string(bodyBytes),
+				HTTPStatus: httpResp.StatusCode,
+			}
+		}
+
+		xenditErr.HTTPStatus = httpResp.StatusCode
+		return nil, &xenditErr
+	}
+
+	return httpResp, nil
+}
+
 func parseResponseBody(bodyBytes []byte, response any) error {
 	if err := json.Unmarshal(bodyBytes, response); err != nil {
 		return &XenditError{

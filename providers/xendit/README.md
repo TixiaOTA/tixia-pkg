@@ -1,12 +1,14 @@
 # Xendit Provider
 
-A Go client library for the [Xendit Payments API](https://docs.xendit.co/apidocs/create-session). This package provides typed access to Xendit payment session creation for hosted checkout and Component SDK flows.
+A Go client library for the [Xendit Payments API](https://docs.xendit.co/apidocs/create-session). This package provides typed access to Xendit payment session creation and status retrieval for hosted checkout and Component SDK flows.
 
 ## Overview
 
 The Xendit package enables you to:
 
 - Create one-time payment sessions (`session_type=PAY`)
+- Retrieve payment session status and payment references via `GetSession`
+- Cancel active payment sessions via `CancelSession`
 - Use hosted checkout (`mode=PAYMENT_LINK`) and redirect via `payment_link_url`
 - Use Xendit Component SDK (`mode=COMPONENTS`) with `components_sdk_key`
 - Validate requests before calling the Xendit API
@@ -158,6 +160,49 @@ if xerr != nil {
 log.Printf("Components SDK key: %s", *resp.ComponentsSDKKey)
 ```
 
+### Get Payment Session Status
+
+Retrieves the current status of a payment session and related payment references (for example after checkout or for polling).
+
+```go
+session, xerr := client.GetSession(context.Background(), xendit.GetSessionRequest{
+    PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+})
+if xerr != nil {
+    log.Fatalf("GetSession failed: %v", xerr)
+}
+
+switch session.Status {
+case string(xendit.SessionStatusCompleted):
+    log.Printf("Payment completed: %s", *session.PaymentID)
+case string(xendit.SessionStatusActive):
+    log.Printf("Session still active: %s", session.PaymentSessionID)
+case string(xendit.SessionStatusExpired), string(xendit.SessionStatusCanceled):
+    log.Printf("Session ended with status: %s", session.Status)
+}
+```
+
+### Cancel Payment Session
+
+Cancels an active payment session and invalidates its hosted checkout URL (for example when a customer abandons checkout).
+
+```go
+session, xerr := client.CancelSession(context.Background(), xendit.CancelSessionRequest{
+    PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.InvalidSessionStatus:
+        log.Printf("Session cannot be canceled: %s", xerr.Message)
+    default:
+        log.Fatalf("CancelSession failed: %v", xerr)
+    }
+    return
+}
+
+log.Printf("Session canceled: %s", session.PaymentSessionID)
+```
+
 ## API Reference
 
 ### Client Methods
@@ -207,6 +252,60 @@ func (c *Client) CreateSession(ctx context.Context, req CreateSessionRequest) (*
 
 **Special Notes:** For `PAYMENT_LINK`, redirect the customer to `payment_link_url`. For `COMPONENTS`, use `components_sdk_key` with the Xendit Component SDK on your frontend. Payment completion is delivered asynchronously via Xendit webhooks (`payment_session.completed`). Webhook handling is outside this package.
 
+#### GetSession
+
+Retrieves the status of a payment session and related payment references.
+
+```go
+func (c *Client) GetSession(ctx context.Context, req GetSessionRequest) (*GetSessionResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentSessionID` (string, required): Xendit payment session id (27 characters, for example `ps-661f87c614802d6c402cd82d`)
+
+**Response:**
+
+- `PaymentSessionID` (string): Xendit payment session id
+- `Status` (string): Session status — `ACTIVE`, `COMPLETED`, `EXPIRED`, or `CANCELED`
+- `PaymentID` (*string): Payment id when the session is completed
+- `PaymentRequestID` (*string): Payment request id when available
+- `PaymentLinkURL` (*string): Hosted checkout URL when `Mode` is `PAYMENT_LINK`
+- `ReferenceID`, `Amount`, `Currency`, `Country`, `Mode`: Echoed session details
+- Additional fields from Xendit session response (see `models.go`)
+
+**Timeout:** 15 seconds
+
+**Retries:** 3 retries with exponential backoff (configurable via `Config.RetryConfig`)
+
+**Special Notes:** Use after `CreateSession` to poll session status or reconcile payment state. Prefer webhooks (`payment_session.completed`, `payment_session.expired`) for production flows.
+
+#### CancelSession
+
+Cancels an active payment session. Only sessions with status `ACTIVE` can be canceled.
+
+```go
+func (c *Client) CancelSession(ctx context.Context, req CancelSessionRequest) (*CancelSessionResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentSessionID` (string, required): Xendit payment session id (27 characters, for example `ps-661f87c614802d6c402cd82d`)
+
+**Response:**
+
+- `PaymentSessionID` (string): Xendit payment session id
+- `Status` (string): `CANCELED` on success
+- `PaymentLinkURL` (*string): Previously issued hosted checkout URL (no longer valid)
+- `ReferenceID`, `Amount`, `Currency`, `Country`, `Mode`: Echoed session details
+- Additional fields from Xendit session response (see `models.go`)
+
+**Timeout:** 15 seconds
+
+**Retries:** 3 retries with exponential backoff (configurable via `Config.RetryConfig`)
+
+**Special Notes:** Canceled sessions cannot be reactivated. Use when invalidating checkout links for abandoned orders or explicit merchant-side cancellation.
+
 ## Error Handling
 
 ### Error Types
@@ -225,7 +324,7 @@ type APIError struct {
 }
 ```
 
-`CreateSession` returns `*XenditError` for validation failures and Xendit API errors.
+`CreateSession`, `GetSession`, and `CancelSession` return `*XenditError` for validation failures and Xendit API errors.
 
 ### Common Error Codes
 
@@ -239,6 +338,8 @@ type APIError struct {
 | `INVALID_URL` | Return URL is not valid HTTPS |
 | `MISSING_CUSTOMER` | Customer object or customer id required |
 | `INVALID_API_KEY` | Invalid or unauthorized API key |
+| `NOT_FOUND` | Payment session does not exist or does not belong to your business |
+| `INVALID_SESSION_STATUS` | Session is not `ACTIVE` and cannot be canceled |
 | `DUPLICATE_ERROR` | Duplicate customer reference id |
 | `SERVER_ERROR` | Xendit internal server error |
 | `INTERNAL_SERVER_ERROR` | Network or unexpected client-side failure |
@@ -267,9 +368,11 @@ if xerr != nil {
 Key request and response types are defined in `models.go`:
 
 - `CreateSessionRequest` / `CreateSessionResponse`
+- `GetSessionRequest` / `GetSessionResponse`
+- `CancelSessionRequest` / `CancelSessionResponse`
 - `CustomerDetails`, `IndividualDetail`
-- `SessionItem`, `ComponentsConfiguration`
-- `SessionType`, `SessionMode`, `CaptureMethod`
+- `SessionItem`, `ComponentsConfiguration`, `SessionSubscription`
+- `SessionType`, `SessionMode`, `CaptureMethod`, `SessionStatus`
 
 ## Examples
 

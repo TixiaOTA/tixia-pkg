@@ -231,6 +231,278 @@ func (suite *EndpointTestSuite) TestCreateSession_NetworkError() {
 	suite.NotEmpty(xerr.Message)
 }
 
+func (suite *EndpointTestSuite) TestGetSession_Success200() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodGet, r.Method)
+		suite.Equal("/sessions/"+sessionID, r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := CreateSessionResponse{
+			PaymentSessionID: sessionID,
+			Created:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			ReferenceID:      "order_12345",
+			SessionType:      SessionTypePay,
+			Currency:         "IDR",
+			Amount:           150000,
+			Country:          "ID",
+			Mode:             SessionModePaymentLink,
+			Status:           string(SessionStatusCompleted),
+			BusinessID:       "661f87c614802d6c402cd82d",
+			PaymentLinkURL:   strPtr("https://dev.xen.to/qZx5RD_7"),
+			PaymentID:        strPtr("py-661f87c614802d6c402cd82e"),
+			PaymentRequestID: strPtr("pr-661f87c614802d6c402cd82f"),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetSession(context.Background(), GetSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(sessionID, resp.PaymentSessionID)
+	suite.Equal(string(SessionStatusCompleted), resp.Status)
+	suite.NotNil(resp.PaymentID)
+	suite.Equal("py-661f87c614802d6c402cd82e", *resp.PaymentID)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestGetSession_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetSession(context.Background(), GetSessionRequest{
+		PaymentSessionID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+	suite.Equal("payment_session_id is required", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestGetSession_NotFound404() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"NOT_FOUND","message":"Session not found"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetSession(context.Background(), GetSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(NotFound, xerr.ErrorCode)
+	suite.Equal(http.StatusNotFound, xerr.HTTPStatus)
+	suite.Equal("Session not found", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestGetSession_InvalidAPIKey401() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_API_KEY","message":"API key is not authorized for this API"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetSession(context.Background(), GetSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidAPIKey, xerr.ErrorCode)
+	suite.Equal(http.StatusUnauthorized, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestGetSession_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.GetSession(context.Background(), GetSessionRequest{
+		PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+	suite.NotEmpty(xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_Success200() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/sessions/"+sessionID+"/cancel", r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := CreateSessionResponse{
+			PaymentSessionID: sessionID,
+			Created:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			ReferenceID:      "order_12345",
+			SessionType:      SessionTypePay,
+			Currency:         "IDR",
+			Amount:           150000,
+			Country:          "ID",
+			Mode:             SessionModePaymentLink,
+			Status:           string(SessionStatusCanceled),
+			BusinessID:       "661f87c614802d6c402cd82d",
+			PaymentLinkURL:   strPtr("https://dev.xen.to/qZx5RD_7"),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(sessionID, resp.PaymentSessionID)
+	suite.Equal(string(SessionStatusCanceled), resp.Status)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+	suite.Equal("payment_session_id is required", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_NotFound404() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"NOT_FOUND","message":"Session not found"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(NotFound, xerr.ErrorCode)
+	suite.Equal(http.StatusNotFound, xerr.HTTPStatus)
+	suite.Equal("Session not found", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_InvalidSessionStatus422() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_SESSION_STATUS","message":"Session is not in ACTIVE status"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidSessionStatus, xerr.ErrorCode)
+	suite.Equal(http.StatusUnprocessableEntity, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_InvalidAPIKey401() {
+	sessionID := "ps-661f87c614802d6c402cd82d"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_API_KEY","message":"API key is not authorized for this API"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: sessionID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidAPIKey, xerr.ErrorCode)
+	suite.Equal(http.StatusUnauthorized, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestCancelSession_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.CancelSession(context.Background(), CancelSessionRequest{
+		PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+	suite.NotEmpty(xerr.Message)
+}
+
 func strPtr(value string) *string {
 	return &value
 }

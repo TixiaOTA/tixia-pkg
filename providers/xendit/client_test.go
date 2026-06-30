@@ -236,3 +236,89 @@ func TestCreateSessionRequest_Validate_PaymentLinkWithComponentsConfiguration(t 
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func validGetSessionRequest() GetSessionRequest {
+	return GetSessionRequest{
+		PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+	}
+}
+
+func TestGetSessionRequest_Validate(t *testing.T) {
+	req := validGetSessionRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetSessionRequest_Validate_MissingPaymentSessionID(t *testing.T) {
+	req := validGetSessionRequest()
+	req.PaymentSessionID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_session_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetSessionRequest_Validate_InvalidLength(t *testing.T) {
+	req := validGetSessionRequest()
+	req.PaymentSessionID = "ps-too-short"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_session_id must be 27 characters" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validCancelSessionRequest() CancelSessionRequest {
+	return CancelSessionRequest{
+		PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+	}
+}
+
+func TestCancelSessionRequest_Validate(t *testing.T) {
+	req := validCancelSessionRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelSessionRequest_Validate_MissingPaymentSessionID(t *testing.T) {
+	req := validCancelSessionRequest()
+	req.PaymentSessionID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_session_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelSessionRequest_Validate_InvalidLength(t *testing.T) {
+	req := validCancelSessionRequest()
+	req.PaymentSessionID = "ps-too-short"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_session_id must be 27 characters" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
