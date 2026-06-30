@@ -163,18 +163,6 @@ func (l *Logger) WithTrace(ctx context.Context, spanId string) *Logger {
 	}
 }
 
-func (l *Logger) Error(msg string, fields ...zapcore.Field) {
-	if ce := l.Check(zapcore.ErrorLevel, msg); ce != nil {
-		ce.Write(fields...)
-
-		// Derive span from the stored context
-		span := trace.SpanFromContext(l.ctx)
-		if span.SpanContext().IsValid() {
-			span.SetStatus(codes.Error, msg)
-		}
-	}
-}
-
 func (l *Logger) WithTraceErrorSpan(ctx context.Context, spanId string, err error) {
 	span := trace.SpanFromContext(ctx)
 	if !span.SpanContext().IsValid() {
