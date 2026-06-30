@@ -32,6 +32,8 @@ const (
 	SessionTypeNotSupported      XenditErrorCode = "SESSION_TYPE_NOT_SUPPORTED"
 	ModeNotSupported             XenditErrorCode = "MODE_NOT_SUPPORTED"
 	InvalidAPIKey                XenditErrorCode = "INVALID_API_KEY"
+	NotFound                     XenditErrorCode = "NOT_FOUND"
+	InvalidSessionStatus         XenditErrorCode = "INVALID_SESSION_STATUS"
 	DataNotFound                 XenditErrorCode = "DATA_NOT_FOUND"
 	DuplicateError               XenditErrorCode = "DUPLICATE_ERROR"
 	ServerError                  XenditErrorCode = "SERVER_ERROR"

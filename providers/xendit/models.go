@@ -324,7 +324,73 @@ func validateHTTPSOrigin(value string, fieldName string) error {
 	return nil
 }
 
+const paymentSessionIDLength = 27
+
+// GetSessionRequest is the request structure for GetSession.
+type GetSessionRequest struct {
+	PaymentSessionID string `json:"-"`
+}
+
+func (r *GetSessionRequest) Validate() error {
+	trimmed := strings.TrimSpace(r.PaymentSessionID)
+	if trimmed == "" {
+		return errors.New("payment_session_id is required")
+	}
+
+	if len(trimmed) != paymentSessionIDLength {
+		return errors.New("payment_session_id must be 27 characters")
+	}
+
+	return nil
+}
+
+// CancelSessionRequest is the request structure for CancelSession.
+type CancelSessionRequest struct {
+	PaymentSessionID string `json:"-"`
+}
+
+func (r *CancelSessionRequest) Validate() error {
+	trimmed := strings.TrimSpace(r.PaymentSessionID)
+	if trimmed == "" {
+		return errors.New("payment_session_id is required")
+	}
+
+	if len(trimmed) != paymentSessionIDLength {
+		return errors.New("payment_session_id must be 27 characters")
+	}
+
+	return nil
+}
+
 // --------------------------------- RESPONSES ---------------------------------
+
+type SessionStatus string
+
+const (
+	SessionStatusActive    SessionStatus = "ACTIVE"
+	SessionStatusCompleted SessionStatus = "COMPLETED"
+	SessionStatusExpired   SessionStatus = "EXPIRED"
+	SessionStatusCanceled  SessionStatus = "CANCELED"
+)
+
+// SessionSubscriptionSchedule describes the billing schedule for a subscription session.
+type SessionSubscriptionSchedule struct {
+	Interval                   string    `json:"interval"`
+	IntervalCount              int       `json:"interval_count"`
+	TotalRecurrence            *int      `json:"total_recurrence,omitempty"`
+	AnchorDate                 time.Time `json:"anchor_date"`
+	RetryInterval              *string   `json:"retry_interval,omitempty"`
+	RetryIntervalCount         *int      `json:"retry_interval_count,omitempty"`
+	TotalRetry                 *int      `json:"total_retry,omitempty"`
+	FailedAttemptNotifications []int     `json:"failed_attempt_notifications,omitempty"`
+}
+
+// SessionSubscription is returned for SUBSCRIPTION session types.
+type SessionSubscription struct {
+	Schedule                    SessionSubscriptionSchedule `json:"schedule"`
+	PaymentLinkForFailedAttempt *bool                       `json:"payment_link_for_failed_attempt,omitempty"`
+	FailedCycleAction           *string                     `json:"failed_cycle_action,omitempty"`
+}
 
 // CreateSessionResponse is the response structure for CreateSession.
 type CreateSessionResponse struct {
@@ -357,4 +423,12 @@ type CreateSessionResponse struct {
 	BusinessID              string                   `json:"business_id"`
 	ComponentsSDKKey        *string                  `json:"components_sdk_key"`
 	ComponentsConfiguration *ComponentsConfiguration `json:"components_configuration"`
+	NotificationChannels    []string                 `json:"notification_channels,omitempty"`
+	Subscription            *SessionSubscription     `json:"subscription,omitempty"`
 }
+
+// GetSessionResponse is the response structure for GetSession.
+type GetSessionResponse = CreateSessionResponse
+
+// CancelSessionResponse is the response structure for CancelSession.
+type CancelSessionResponse = CreateSessionResponse
