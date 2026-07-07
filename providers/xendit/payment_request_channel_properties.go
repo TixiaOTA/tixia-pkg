@@ -60,7 +60,9 @@ var virtualAccountChannelCodes = map[string]struct{}{
 	ChannelCodePermataVirtualAccount:  {},
 }
 
-// PaymentRequestChannelProperties wraps typed channel_properties for IDR PAY requests.
+// PaymentRequestChannelProperties wraps channel_properties for IDR PAY payment requests.
+// Outbound requests use typed constructors (NewOVOChannelProperties, etc.).
+// Inbound JSON (API responses, webhooks) decodes to map[string]any without channel validation.
 type PaymentRequestChannelProperties struct {
 	value any
 }
@@ -71,6 +73,21 @@ func (p PaymentRequestChannelProperties) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(p.value)
+}
+
+func (p *PaymentRequestChannelProperties) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		p.value = nil
+		return nil
+	}
+
+	var props map[string]any
+	if err := json.Unmarshal(data, &props); err != nil {
+		return err
+	}
+
+	p.value = props
+	return nil
 }
 
 func (p PaymentRequestChannelProperties) IsZero() bool {

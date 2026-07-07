@@ -238,7 +238,7 @@ type CreatePaymentRequestResponse struct {
 	RequestAmount       DecimalAmount                      `json:"request_amount"`
 	CaptureMethod       *CaptureMethod                     `json:"capture_method,omitempty"`
 	ChannelCode         string                             `json:"channel_code"`
-	ChannelProperties   map[string]any                     `json:"channel_properties,omitempty"`
+	ChannelProperties   PaymentRequestChannelProperties    `json:"channel_properties,omitempty"`
 	Actions             []PaymentRequestAction             `json:"actions,omitempty"`
 	Status              string                             `json:"status"`
 	FailureCode         *string                            `json:"failure_code,omitempty"`

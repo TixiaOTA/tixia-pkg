@@ -631,7 +631,7 @@ func (c *Client) CreatePaymentRequest(ctx context.Context, req CreatePaymentRequ
 - `Status` (string): Payment request status — `REQUIRES_ACTION`, `PENDING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or `EXPIRED`
 - `Actions` ([]PaymentRequestAction): Customer actions required to complete payment (for example redirect URL)
 - `ChannelCode` (string): Payment channel used
-- `ChannelProperties` (map[string]any): Echoed channel properties
+- `ChannelProperties` (PaymentRequestChannelProperties): Echoed channel properties; inbound JSON decodes to `map[string]any` without channel validation
 - `ReferenceID`, `RequestAmount`, `Currency`, `Country`: Echoed payment request details
 - Additional fields from Xendit payment request response (see `payment_request_models.go`)
 
