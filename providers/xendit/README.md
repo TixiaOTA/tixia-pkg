@@ -7,6 +7,7 @@ A Go client library for the [Xendit Payments API](https://docs.xendit.co/apidocs
 The Xendit package enables you to:
 
 - Create one-time payment sessions (`session_type=PAY`)
+- Create direct channel payment requests (`type=PAY`, `currency=IDR`, `country=ID`)
 - Retrieve payment session status and payment references via `GetSession`
 - Cancel active payment sessions via `CancelSession`
 - Retrieve payment status and details via `GetPayment`
@@ -204,6 +205,71 @@ if xerr != nil {
 }
 
 log.Printf("Session canceled: %s", session.PaymentSessionID)
+```
+
+### Create Payment Request (IDR channel payment)
+
+Creates a direct channel payment request for Indonesia (`country=ID`, `currency=IDR`). Use when you already know the payment channel (for example `OVO`, `DANA`, `QRIS`) and want to collect via redirect or channel-specific flow.
+
+```go
+captureMethod := xendit.CaptureMethodAutomatic
+
+paymentRequest, xerr := client.CreatePaymentRequest(context.Background(), xendit.CreatePaymentRequestRequest{
+    ReferenceID:   "order_12345",
+    Type:          xendit.PaymentTypePay,
+    Country:       "ID",
+    Currency:      "IDR",
+    RequestAmount: xendit.NewDecimalAmountFromFloat(150000),
+    ChannelCode:   xendit.ChannelCodeOVO,
+    CaptureMethod: &captureMethod,
+    ChannelProperties: xendit.NewOVOChannelProperties(xendit.OVOChannelProperties{
+        AccountMobileNumber: "+628123456789",
+    }),
+    Description: strPtr("Hotel booking"),
+    Metadata: map[string]string{
+        "order_id": "12345",
+    },
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.InvalidPaymentChannel:
+        log.Printf("Unsupported channel: %s", xerr.Message)
+    default:
+        log.Fatalf("CreatePaymentRequest failed: %v", xerr)
+    }
+    return
+}
+
+switch paymentRequest.Status {
+case string(xendit.PaymentRequestStatusRequiresAction):
+    for _, action := range paymentRequest.Actions {
+        if action.Type == xendit.PaymentRequestActionTypeRedirectCustomer {
+            log.Printf("Redirect customer to: %s", action.Value)
+        }
+    }
+case string(xendit.PaymentRequestStatusSucceeded):
+    log.Printf("Payment request succeeded: %s", paymentRequest.PaymentRequestID)
+default:
+    log.Printf("Payment request status: %s", paymentRequest.Status)
+}
+```
+
+**Validation notes:** `CreatePaymentRequestRequest` enforces `country=ID` and `currency=IDR` only. `channel_code` and typed `channel_properties` are required. The `channel_properties` struct must match the selected channel. For example, OVO requires `OVOChannelProperties`, DANA requires `SingleRedirectChannelProperties`, and GOPAY requires `TripleRedirectChannelProperties`.
+
+**DANA example:**
+
+```go
+paymentRequest, xerr := client.CreatePaymentRequest(context.Background(), xendit.CreatePaymentRequestRequest{
+    ReferenceID:   "order_12345",
+    Type:          xendit.PaymentTypePay,
+    Country:       "ID",
+    Currency:      "IDR",
+    RequestAmount: xendit.NewDecimalAmountFromFloat(150000),
+    ChannelCode:   xendit.ChannelCodeDANA,
+    ChannelProperties: xendit.NewSingleRedirectChannelProperties(xendit.SingleRedirectChannelProperties{
+        SuccessReturnURL: "https://example.com/success",
+    }),
+})
 ```
 
 ### Get Payment Status
@@ -461,6 +527,59 @@ func (c *Client) CapturePayment(ctx context.Context, req CapturePaymentRequest) 
 
 **Special Notes:** Use for manual capture flows (`capture_method=MANUAL`). Returns `CAPTURE_AMOUNT_EXCEEDED` when the capture amount exceeds the authorized amount.
 
+#### CreatePaymentRequest
+
+Creates a direct channel payment request for Indonesia. Scoped to `type=PAY`, `country=ID`, and `currency=IDR`.
+
+```go
+func (c *Client) CreatePaymentRequest(ctx context.Context, req CreatePaymentRequestRequest) (*CreatePaymentRequestResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `ReferenceID` (string, required): Merchant reference for the payment request
+- `Type` (PaymentType, required): Must be `PAY`
+- `Country` (string, required): Must be `ID`
+- `Currency` (string, required): Must be `IDR`
+- `RequestAmount` (DecimalAmount, required): Payment amount, must be greater than zero
+- `ChannelCode` (string, required): Payment channel code constant (for example `xendit.ChannelCodeOVO`, `xendit.ChannelCodeDANA`, `xendit.ChannelCodeQRIS`)
+- `ChannelProperties` (PaymentRequestChannelProperties, required): Typed channel payload that must match `ChannelCode`
+- `CaptureMethod` (*CaptureMethod, optional): `AUTOMATIC` or `MANUAL`
+- `CustomerID` (*string, optional): Existing Xendit customer id
+- `Customer` (*CustomerDetails, optional): Inline customer details
+- `Description` (*string, optional): Payment description
+- `Metadata` (map[string]string, optional): Merchant metadata
+
+**Typed `channel_properties` by channel:**
+
+| Channel group | Struct constructor | Channels |
+|---------------|-------------------|----------|
+| `OVOChannelProperties` | `NewOVOChannelProperties` | `OVO` |
+| `SingleRedirectChannelProperties` | `NewSingleRedirectChannelProperties` | `DANA`, `LINKAJA`, `SHOPEEPAY` |
+| `DualRedirectChannelProperties` | `NewDualRedirectChannelProperties` | `ASTRAPAY`, `NEXCASH` |
+| `TripleRedirectChannelProperties` | `NewTripleRedirectChannelProperties` | `GOPAY` |
+| `QRISChannelProperties` | `NewQRISChannelProperties` | `QRIS` |
+| `CardsChannelProperties` | `NewCardsChannelProperties` | `CARDS` |
+| `VirtualAccountChannelProperties` | `NewVirtualAccountChannelProperties` | `BCA_VIRTUAL_ACCOUNT`, `BNI_VIRTUAL_ACCOUNT`, `BRI_VIRTUAL_ACCOUNT`, and other VA channels |
+| `RetailOutletChannelProperties` | `NewRetailOutletChannelProperties` | `ALFAMART`, `INDOMARET` |
+| `JeniusPayChannelProperties` | `NewJeniusPayChannelProperties` | `JENIUSPAY` |
+
+**Response:**
+
+- `PaymentRequestID` (string): Xendit payment request id
+- `Status` (string): Payment request status — `REQUIRES_ACTION`, `PENDING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or `EXPIRED`
+- `Actions` ([]PaymentRequestAction): Customer actions required to complete payment (for example redirect URL)
+- `ChannelCode` (string): Payment channel used
+- `ChannelProperties` (map[string]any): Echoed channel properties
+- `ReferenceID`, `RequestAmount`, `Currency`, `Country`: Echoed payment request details
+- Additional fields from Xendit payment request response (see `payment_request_models.go`)
+
+**Timeout:** 15 seconds
+
+**Retries:** 3 retries with exponential backoff (configurable via `Config.RetryConfig`)
+
+**Special Notes:** For redirect channels, inspect `actions` when `status` is `REQUIRES_ACTION` and send the customer to the redirect URL. Payment completion is delivered asynchronously via Xendit webhooks. Webhook handling is outside this package.
+
 ## Error Handling
 
 ### Error Types
@@ -479,7 +598,7 @@ type APIError struct {
 }
 ```
 
-`CreateSession`, `GetSession`, `CancelSession`, `GetPayment`, `CancelPayment`, and `CapturePayment` return `*XenditError` for validation failures and Xendit API errors.
+`CreateSession`, `GetSession`, `CancelSession`, `CreatePaymentRequest`, `GetPayment`, `CancelPayment`, and `CapturePayment` return `*XenditError` for validation failures and Xendit API errors.
 
 ### Common Error Codes
 
@@ -498,6 +617,7 @@ type APIError struct {
 | `INELIGIBLE_TRANSACTION_STATUS` | Payment is not in the required status for cancel or capture |
 | `CAPTURE_AMOUNT_EXCEEDED` | Capture amount exceeds the authorized amount |
 | `INVALID_MERCHANT_SETTINGS` | Merchant credentials error with the payment provider |
+| `INVALID_PAYMENT_CHANNEL` | Unsupported or invalid payment channel |
 | `CHANNEL_UNAVAILABLE` | Payment channel is temporarily unavailable |
 | `INVALID_SESSION_STATUS` | Session is not `ACTIVE` and cannot be canceled |
 | `DUPLICATE_ERROR` | Duplicate customer reference id |
@@ -533,6 +653,9 @@ Key request and response types are defined in `models.go`:
 - `GetPaymentRequest` / `GetPaymentResponse`
 - `CancelPaymentRequest` / `CancelPaymentResponse`
 - `CapturePaymentRequest` / `CapturePaymentResponse`
+- `CreatePaymentRequestRequest` / `CreatePaymentRequestResponse`
+- `PaymentRequestChannelProperties`, `OVOChannelProperties`, `SingleRedirectChannelProperties`, `DualRedirectChannelProperties`, `TripleRedirectChannelProperties`, `QRISChannelProperties`, `CardsChannelProperties`, `VirtualAccountChannelProperties`, `RetailOutletChannelProperties`, `JeniusPayChannelProperties`
+- `PaymentRequestAction`, `PaymentRequestStatus`
 - `PaymentCapture`, `PaymentDetails`, `PaymentAuthorizationData`, `DecimalAmount`
 - `CustomerDetails`, `IndividualDetail`
 - `SessionItem`, `ComponentsConfiguration`, `SessionSubscription`

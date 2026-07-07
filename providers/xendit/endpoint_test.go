@@ -522,7 +522,7 @@ func (suite *EndpointTestSuite) TestGetPayment_Success200() {
 			Country:          "ID",
 			Currency:         "IDR",
 			RequestAmount:    DecimalAmount{value: "1999.01"},
-			ChannelCode:      "OVO",
+			ChannelCode:      ChannelCodeOVO,
 			Status:           string(PaymentStatusSucceeded),
 			Created:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
 			Updated:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -909,6 +909,156 @@ func (suite *EndpointTestSuite) TestCapturePayment_NetworkError() {
 		PaymentID:     "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
 		CaptureAmount: NewDecimalAmountFromFloat(1999.01),
 	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success201() {
+	var receivedAuth string
+
+	type createPaymentRequestBody struct {
+		ReferenceID       string          `json:"reference_id"`
+		ChannelCode       string          `json:"channel_code"`
+		ChannelProperties json.RawMessage `json:"channel_properties"`
+	}
+
+	var receivedBody createPaymentRequestBody
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/v3/payment_requests", r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		suite.NoError(err)
+
+		err = json.Unmarshal(bodyBytes, &receivedBody)
+		suite.NoError(err)
+
+		response := CreatePaymentRequestResponse{
+			PaymentRequestID: "pr-90392f42-d98a-49ef-a7f3-abcezas123",
+			BusinessID:       "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:      receivedBody.ReferenceID,
+			Type:             PaymentTypePay,
+			Country:          "ID",
+			Currency:         "IDR",
+			RequestAmount:    DecimalAmount{value: "150000"},
+			ChannelCode:      ChannelCodeOVO,
+			ChannelProperties: map[string]any{
+				"account_mobile_number": "+628123456789",
+			},
+			Actions: []PaymentRequestAction{
+				{
+					Type:       PaymentRequestActionTypeRedirectCustomer,
+					Value:      "https://xendit.co/example",
+					Descriptor: PaymentRequestActionDescriptorWebURL,
+				},
+			},
+			Status:  string(PaymentRequestStatusRequiresAction),
+			Created: time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated: time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		err = json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	req := validCreatePaymentRequestRequest()
+
+	resp, xerr := client.CreatePaymentRequest(context.Background(), req)
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal("pr-90392f42-d98a-49ef-a7f3-abcezas123", resp.PaymentRequestID)
+	suite.Equal(string(PaymentRequestStatusRequiresAction), resp.Status)
+	suite.Len(resp.Actions, 1)
+	suite.Equal(PaymentRequestActionTypeRedirectCustomer, resp.Actions[0].Type)
+	suite.Equal("https://xendit.co/example", resp.Actions[0].Value)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+	suite.Equal("order_12345", receivedBody.ReferenceID)
+	suite.Equal(ChannelCodeOVO, receivedBody.ChannelCode)
+	suite.JSONEq(`{"account_mobile_number":"+628123456789"}`, string(receivedBody.ChannelProperties))
+}
+
+func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success200() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := CreatePaymentRequestResponse{
+			PaymentRequestID: "pr-90392f42-d98a-49ef-a7f3-abcezas123",
+			BusinessID:       "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:      "order_12345",
+			Type:             PaymentTypePay,
+			Country:          "ID",
+			Currency:         "IDR",
+			RequestAmount:    DecimalAmount{value: "150000"},
+			ChannelCode:      ChannelCodeOVO,
+			Status:           string(PaymentRequestStatusPending),
+			Created:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CreatePaymentRequest(context.Background(), validCreatePaymentRequestRequest())
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(string(PaymentRequestStatusPending), resp.Status)
+}
+
+func (suite *EndpointTestSuite) TestCreatePaymentRequest_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	req := validCreatePaymentRequestRequest()
+	req.ChannelCode = ""
+
+	resp, xerr := client.CreatePaymentRequest(context.Background(), req)
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCreatePaymentRequest_InvalidChannel() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_PAYMENT_CHANNEL","message":"The payment channel is invalid."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CreatePaymentRequest(context.Background(), validCreatePaymentRequestRequest())
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidPaymentChannel, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCreatePaymentRequest_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.CreatePaymentRequest(context.Background(), validCreatePaymentRequestRequest())
 
 	suite.Nil(resp)
 	suite.NotNil(xerr)

@@ -438,3 +438,152 @@ func TestCapturePaymentRequest_Validate_InvalidCaptureAmount(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func validCreatePaymentRequestRequest() CreatePaymentRequestRequest {
+	captureMethod := CaptureMethodAutomatic
+
+	return CreatePaymentRequestRequest{
+		ReferenceID:   "order_12345",
+		Type:          PaymentTypePay,
+		Country:       "ID",
+		Currency:      "IDR",
+		RequestAmount: NewDecimalAmountFromFloat(150000),
+		ChannelCode:   ChannelCodeOVO,
+		CaptureMethod: &captureMethod,
+		ChannelProperties: NewOVOChannelProperties(OVOChannelProperties{
+			AccountMobileNumber: "+628123456789",
+		}),
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingReferenceID(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ReferenceID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "reference_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingChannelCode(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelCode = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_code is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidAmount(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.RequestAmount = NewDecimalAmountFromFloat(0)
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "request_amount must be greater than zero" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidCurrency(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.Currency = "PHP"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "currency must be IDR" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidCountry(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.Country = "PH"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "country must be ID" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidReturnURL(t *testing.T) {
+	req := CreatePaymentRequestRequest{
+		ReferenceID:   "order_12345",
+		Type:          PaymentTypePay,
+		Country:       "ID",
+		Currency:      "IDR",
+		RequestAmount: NewDecimalAmountFromFloat(150000),
+		ChannelCode:   ChannelCodeDANA,
+		ChannelProperties: NewSingleRedirectChannelProperties(SingleRedirectChannelProperties{
+			SuccessReturnURL: "http://example.com/success",
+		}),
+	}
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties.success_return_url must use HTTPS" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingChannelProperties(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelProperties = PaymentRequestChannelProperties{}
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_ChannelPropertiesTypeMismatch(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelProperties = NewSingleRedirectChannelProperties(SingleRedirectChannelProperties{
+		SuccessReturnURL: "https://example.com/success",
+	})
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties type mismatch for channel_code \"OVO\"" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
