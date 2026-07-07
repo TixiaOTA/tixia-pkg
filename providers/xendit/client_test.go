@@ -322,3 +322,119 @@ func TestCancelSessionRequest_Validate_InvalidLength(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func validGetPaymentRequest() GetPaymentRequest {
+	return GetPaymentRequest{
+		PaymentID: "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+	}
+}
+
+func TestGetPaymentRequest_Validate(t *testing.T) {
+	req := validGetPaymentRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPaymentRequest_Validate_MissingPaymentID(t *testing.T) {
+	req := validGetPaymentRequest()
+	req.PaymentID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPaymentRequest_Validate_InvalidLength(t *testing.T) {
+	req := validGetPaymentRequest()
+	req.PaymentID = "py-too-short"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_id must be 39 characters" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validCancelPaymentRequest() CancelPaymentRequest {
+	return CancelPaymentRequest{
+		PaymentID: "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+	}
+}
+
+func TestCancelPaymentRequest_Validate(t *testing.T) {
+	req := validCancelPaymentRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelPaymentRequest_Validate_MissingPaymentID(t *testing.T) {
+	req := validCancelPaymentRequest()
+	req.PaymentID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validCapturePaymentRequest() CapturePaymentRequest {
+	return CapturePaymentRequest{
+		PaymentID:     "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+		CaptureAmount: NewDecimalAmountFromFloat(1999.01),
+	}
+}
+
+func TestCapturePaymentRequest_Validate(t *testing.T) {
+	req := validCapturePaymentRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCapturePaymentRequest_Validate_MissingPaymentID(t *testing.T) {
+	req := validCapturePaymentRequest()
+	req.PaymentID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCapturePaymentRequest_Validate_InvalidCaptureAmount(t *testing.T) {
+	req := validCapturePaymentRequest()
+	req.CaptureAmount = NewDecimalAmountFromFloat(0)
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "capture_amount must be greater than zero" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
