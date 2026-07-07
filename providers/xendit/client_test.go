@@ -438,3 +438,268 @@ func TestCapturePaymentRequest_Validate_InvalidCaptureAmount(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func validCreatePaymentRequestRequest() CreatePaymentRequestRequest {
+	captureMethod := CaptureMethodAutomatic
+
+	return CreatePaymentRequestRequest{
+		ReferenceID:   "order_12345",
+		Type:          PaymentTypePay,
+		Country:       "ID",
+		Currency:      "IDR",
+		RequestAmount: NewDecimalAmountFromFloat(150000),
+		ChannelCode:   ChannelCodeOVO,
+		CaptureMethod: &captureMethod,
+		ChannelProperties: NewOVOChannelProperties(OVOChannelProperties{
+			AccountMobileNumber: "+628123456789",
+		}),
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingReferenceID(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ReferenceID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "reference_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingChannelCode(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelCode = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_code is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidAmount(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.RequestAmount = NewDecimalAmountFromFloat(0)
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "request_amount must be greater than zero" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidCurrency(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.Currency = "PHP"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "currency must be IDR" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidCountry(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.Country = "PH"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "country must be ID" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_InvalidReturnURL(t *testing.T) {
+	req := CreatePaymentRequestRequest{
+		ReferenceID:   "order_12345",
+		Type:          PaymentTypePay,
+		Country:       "ID",
+		Currency:      "IDR",
+		RequestAmount: NewDecimalAmountFromFloat(150000),
+		ChannelCode:   ChannelCodeDANA,
+		ChannelProperties: NewSingleRedirectChannelProperties(SingleRedirectChannelProperties{
+			SuccessReturnURL: "http://example.com/success",
+		}),
+	}
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties.success_return_url must use HTTPS" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_MissingChannelProperties(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelProperties = PaymentRequestChannelProperties{}
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreatePaymentRequestRequest_Validate_ChannelPropertiesTypeMismatch(t *testing.T) {
+	req := validCreatePaymentRequestRequest()
+	req.ChannelProperties = NewSingleRedirectChannelProperties(SingleRedirectChannelProperties{
+		SuccessReturnURL: "https://example.com/success",
+	})
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "channel_properties type mismatch for channel_code \"OVO\"" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validGetPaymentRequestStatusRequest() GetPaymentRequestStatusRequest {
+	return GetPaymentRequestStatusRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	}
+}
+
+func TestGetPaymentRequestStatusRequest_Validate(t *testing.T) {
+	req := validGetPaymentRequestStatusRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPaymentRequestStatusRequest_Validate_MissingPaymentRequestID(t *testing.T) {
+	req := validGetPaymentRequestStatusRequest()
+	req.PaymentRequestID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_request_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPaymentRequestStatusRequest_Validate_InvalidLength(t *testing.T) {
+	req := validGetPaymentRequestStatusRequest()
+	req.PaymentRequestID = "pr-too-short"
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_request_id must be 39 characters" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validCancelPaymentRequestStatusRequest() CancelPaymentRequestStatusRequest {
+	return CancelPaymentRequestStatusRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	}
+}
+
+func TestCancelPaymentRequestStatusRequest_Validate(t *testing.T) {
+	req := validCancelPaymentRequestStatusRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelPaymentRequestStatusRequest_Validate_MissingPaymentRequestID(t *testing.T) {
+	req := validCancelPaymentRequestStatusRequest()
+	req.PaymentRequestID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_request_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func validSimulatePaymentRequestRequest() SimulatePaymentRequestRequest {
+	return SimulatePaymentRequestRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	}
+}
+
+func TestSimulatePaymentRequestRequest_Validate(t *testing.T) {
+	req := validSimulatePaymentRequestRequest()
+
+	err := req.Validate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSimulatePaymentRequestRequest_Validate_MissingPaymentRequestID(t *testing.T) {
+	req := validSimulatePaymentRequestRequest()
+	req.PaymentRequestID = ""
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "payment_request_id is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSimulatePaymentRequestRequest_Validate_InvalidAmount(t *testing.T) {
+	amount := NewDecimalAmountFromFloat(0)
+	req := validSimulatePaymentRequestRequest()
+	req.Amount = &amount
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if err.Error() != "amount must be greater than zero" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
