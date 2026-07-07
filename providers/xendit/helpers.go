@@ -132,15 +132,19 @@ func (c *Client) sendGetRequest(ctx context.Context, path string, headers *map[s
 	return httpResp, nil
 }
 
-func (c *Client) sendPostRequest(ctx context.Context, path string, headers *map[string]string) (*http.Response, error) {
+func (c *Client) sendPostRequest(ctx context.Context, path string, body any, headers *map[string]string) (*http.Response, error) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "xendit", "sendPostRequest")
 	defer span.End()
+
+	if body == nil {
+		body = struct{}{}
+	}
 
 	headersMap := c.buildHeaders(headers)
 
 	httpResp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
 		Path:    path,
-		Body:    struct{}{},
+		Body:    body,
 		Headers: &headersMap,
 	})
 	if err != nil {

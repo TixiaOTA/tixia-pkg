@@ -503,6 +503,418 @@ func (suite *EndpointTestSuite) TestCancelSession_NetworkError() {
 	suite.NotEmpty(xerr.Message)
 }
 
+func (suite *EndpointTestSuite) TestGetPayment_Success200() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodGet, r.Method)
+		suite.Equal("/v3/payments/"+paymentID, r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := GetPaymentResponse{
+			PaymentID:        paymentID,
+			BusinessID:       "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:      "order_12345",
+			PaymentRequestID: strPtr("pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"),
+			Type:             PaymentTypePay,
+			Country:          "ID",
+			Currency:         "IDR",
+			RequestAmount:    DecimalAmount{value: "1999.01"},
+			ChannelCode:      "OVO",
+			Status:           string(PaymentStatusSucceeded),
+			Created:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(paymentID, resp.PaymentID)
+	suite.Equal(string(PaymentStatusSucceeded), resp.Status)
+	suite.Equal("1999.01", resp.RequestAmount.String())
+
+	amount, err := resp.RequestAmount.Float64()
+	suite.NoError(err)
+	suite.Equal(1999.01, amount)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestGetPayment_Success200_StringRequestAmount() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err := io.WriteString(w, `{
+			"payment_id": "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+			"business_id": "5f27a14a9bf05c73dd040bc8",
+			"reference_id": "order_12345",
+			"type": "PAY",
+			"country": "ID",
+			"currency": "IDR",
+			"request_amount": "1999.01",
+			"channel_code": "OVO",
+			"status": "SUCCEEDED",
+			"created": "2029-12-31T23:59:59Z",
+			"updated": "2029-12-31T23:59:59Z"
+		}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal("1999.01", resp.RequestAmount.String())
+}
+
+func (suite *EndpointTestSuite) TestGetPayment_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+	suite.Equal("payment_id is required", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestGetPayment_NotFound404() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"DATA_NOT_FOUND","message":"ID specified in request cannot be found."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(DataNotFound, xerr.ErrorCode)
+	suite.Equal(http.StatusNotFound, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestGetPayment_InvalidAPIKey401() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_API_KEY","message":"API key is not authorized for this API"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidAPIKey, xerr.ErrorCode)
+	suite.Equal(http.StatusUnauthorized, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestGetPayment_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.GetPayment(context.Background(), GetPaymentRequest{
+		PaymentID: "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+	suite.NotEmpty(xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCancelPayment_Success200() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/v3/payments/"+paymentID+"/cancel", r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := CancelPaymentResponse{
+			PaymentID:     paymentID,
+			BusinessID:    "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:   "order_12345",
+			Type:          PaymentTypePay,
+			Country:       "ID",
+			Currency:      "IDR",
+			RequestAmount: DecimalAmount{value: "1999.01"},
+			ChannelCode:   "CARDS",
+			Status:        string(PaymentStatusCanceled),
+			Created:       time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:       time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelPayment(context.Background(), CancelPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(paymentID, resp.PaymentID)
+	suite.Equal(string(PaymentStatusCanceled), resp.Status)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestCancelPayment_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelPayment(context.Background(), CancelPaymentRequest{
+		PaymentID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCancelPayment_IneligibleStatus400() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := io.WriteString(w, `{"error_code":"INELIGIBLE_TRANSACTION_STATUS","message":"Payment is not in AUTHORIZED status"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelPayment(context.Background(), CancelPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(IneligibleTransactionStatus, xerr.ErrorCode)
+	suite.Equal(http.StatusBadRequest, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestCancelPayment_NotFound404() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"DATA_NOT_FOUND","message":"ID specified in request cannot be found."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelPayment(context.Background(), CancelPaymentRequest{
+		PaymentID: paymentID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(DataNotFound, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCancelPayment_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.CancelPayment(context.Background(), CancelPaymentRequest{
+		PaymentID: "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCapturePayment_Success200() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/v3/payments/"+paymentID+"/capture", r.URL.Path)
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		suite.NoError(err)
+
+		err = json.Unmarshal(bodyBytes, &receivedBody)
+		suite.NoError(err)
+
+		response := CapturePaymentResponse{
+			PaymentID:     paymentID,
+			BusinessID:    "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:   "order_12345",
+			Type:          PaymentTypePay,
+			Country:       "ID",
+			Currency:      "IDR",
+			RequestAmount: DecimalAmount{value: "1999.01"},
+			ChannelCode:   "CARDS",
+			Status:        string(PaymentStatusSucceeded),
+			Captures: []PaymentCapture{
+				{
+					CaptureID:        "cap-1502feb0-bb79-47ae-9d1e-e69394d3949c",
+					CaptureTimestamp: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+					CaptureAmount:    DecimalAmount{value: "1999.01"},
+				},
+			},
+			Created: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CapturePayment(context.Background(), CapturePaymentRequest{
+		PaymentID:     paymentID,
+		CaptureAmount: NewDecimalAmountFromFloat(1999.01),
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(paymentID, resp.PaymentID)
+	suite.Equal(string(PaymentStatusSucceeded), resp.Status)
+	suite.Len(resp.Captures, 1)
+	suite.Equal("1999.01", receivedBody["capture_amount"])
+}
+
+func (suite *EndpointTestSuite) TestCapturePayment_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CapturePayment(context.Background(), CapturePaymentRequest{
+		PaymentID:     "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+		CaptureAmount: NewDecimalAmountFromFloat(0),
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+	suite.Equal("capture_amount must be greater than zero", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCapturePayment_CaptureAmountExceeded400() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := io.WriteString(w, `{"error_code":"CAPTURE_AMOUNT_EXCEEDED","message":"Capture amount exceeds authorized amount"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CapturePayment(context.Background(), CapturePaymentRequest{
+		PaymentID:     paymentID,
+		CaptureAmount: NewDecimalAmountFromFloat(9999.99),
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(CaptureAmountExceeded, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCapturePayment_NotFound404() {
+	paymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"DATA_NOT_FOUND","message":"ID specified in request cannot be found."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CapturePayment(context.Background(), CapturePaymentRequest{
+		PaymentID:     paymentID,
+		CaptureAmount: NewDecimalAmountFromFloat(1999.01),
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(DataNotFound, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCapturePayment_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.CapturePayment(context.Background(), CapturePaymentRequest{
+		PaymentID:     "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+		CaptureAmount: NewDecimalAmountFromFloat(1999.01),
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+}
+
 func strPtr(value string) *string {
 	return &value
 }

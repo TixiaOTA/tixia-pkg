@@ -9,6 +9,9 @@ The Xendit package enables you to:
 - Create one-time payment sessions (`session_type=PAY`)
 - Retrieve payment session status and payment references via `GetSession`
 - Cancel active payment sessions via `CancelSession`
+- Retrieve payment status and details via `GetPayment`
+- Cancel authorized payments via `CancelPayment`
+- Capture authorized payments via `CapturePayment`
 - Use hosted checkout (`mode=PAYMENT_LINK`) and redirect via `payment_link_url`
 - Use Xendit Component SDK (`mode=COMPONENTS`) with `components_sdk_key`
 - Validate requests before calling the Xendit API
@@ -203,6 +206,91 @@ if xerr != nil {
 log.Printf("Session canceled: %s", session.PaymentSessionID)
 ```
 
+### Get Payment Status
+
+Retrieves the status and details of a payment. Use after `GetSession` returns a `payment_id`, or to fetch card authorization data.
+
+```go
+session, xerr := client.GetSession(context.Background(), xendit.GetSessionRequest{
+    PaymentSessionID: "ps-661f87c614802d6c402cd82d",
+})
+if xerr != nil {
+    log.Fatalf("GetSession failed: %v", xerr)
+}
+
+if session.PaymentID == nil {
+    log.Fatal("payment not yet created for session")
+}
+
+payment, xerr := client.GetPayment(context.Background(), xendit.GetPaymentRequest{
+    PaymentID: *session.PaymentID,
+})
+if xerr != nil {
+    log.Fatalf("GetPayment failed: %v", xerr)
+}
+
+switch payment.Status {
+case string(xendit.PaymentStatusSucceeded):
+    log.Printf("Payment succeeded: %s", payment.PaymentID)
+case string(xendit.PaymentStatusAuthorized):
+    log.Printf("Payment authorized, awaiting capture: %s", payment.PaymentID)
+case string(xendit.PaymentStatusFailed), string(xendit.PaymentStatusExpired), string(xendit.PaymentStatusCanceled):
+    log.Printf("Payment ended with status: %s", payment.Status)
+}
+
+if payment.PaymentDetails != nil && payment.PaymentDetails.AuthorizationData != nil {
+    auth := payment.PaymentDetails.AuthorizationData
+    if auth.AuthorizationCode != nil {
+        log.Printf("Authorization code: %s", *auth.AuthorizationCode)
+    }
+}
+```
+
+### Cancel Payment
+
+Cancels an authorized payment before capture. Only payments in `AUTHORIZED` status can be canceled.
+
+```go
+payment, xerr := client.CancelPayment(context.Background(), xendit.CancelPaymentRequest{
+    PaymentID: "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.IneligibleTransactionStatus:
+        log.Printf("Payment cannot be canceled: %s", xerr.Message)
+    default:
+        log.Fatalf("CancelPayment failed: %v", xerr)
+    }
+    return
+}
+
+log.Printf("Payment canceled: %s", payment.PaymentID)
+```
+
+### Capture Payment
+
+Captures an authorized payment to complete collection. Use with `capture_method=MANUAL` flows.
+
+```go
+payment, xerr := client.CapturePayment(context.Background(), xendit.CapturePaymentRequest{
+    PaymentID:     "py-1402feb0-bb79-47ae-9d1e-e69394d3949c",
+    CaptureAmount: xendit.NewDecimalAmountFromFloat(1999.01),
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.CaptureAmountExceeded:
+        log.Printf("Capture amount too high: %s", xerr.Message)
+    case xendit.IneligibleTransactionStatus:
+        log.Printf("Payment is not capturable: %s", xerr.Message)
+    default:
+        log.Fatalf("CapturePayment failed: %v", xerr)
+    }
+    return
+}
+
+log.Printf("Payment captured: %s", payment.PaymentID)
+```
+
 ## API Reference
 
 ### Client Methods
@@ -306,6 +394,73 @@ func (c *Client) CancelSession(ctx context.Context, req CancelSessionRequest) (*
 
 **Special Notes:** Canceled sessions cannot be reactivated. Use when invalidating checkout links for abandoned orders or explicit merchant-side cancellation.
 
+#### GetPayment
+
+Retrieves the status and details of a payment.
+
+```go
+func (c *Client) GetPayment(ctx context.Context, req GetPaymentRequest) (*GetPaymentResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentID` (string, required): Xendit payment id (39 characters, for example `py-1402feb0-bb79-47ae-9d1e-e69394d3949c`)
+
+**Response:**
+
+- `PaymentID` (string): Xendit payment id
+- `Status` (string): Payment status — `AUTHORIZED`, `CANCELED`, `SUCCEEDED`, `FAILED`, `EXPIRED`, or `PENDING`
+- `RequestAmount` (DecimalAmount): Intended payment amount (accepts string or number from API)
+- `PaymentRequestID` (*string): Associated payment request id
+- `ChannelCode` (string): Payment channel used (for example `CARDS`, `OVO`)
+- `PaymentDetails` (*PaymentDetails): Provider-specific details including `authorization_data` for card payments
+- `Captures` ([]PaymentCapture): Capture records when applicable
+- `ReferenceID`, `Currency`, `Country`, `Type`: Echoed payment details
+- Additional fields from Xendit payment response (see `payment_models.go`)
+
+**Timeout:** 15 seconds
+
+**Retries:** 3 retries with exponential backoff (configurable via `Config.RetryConfig`)
+
+**Special Notes:** Use after `GetSession` when you need payment-level status or card authorization data. `GetSession` returns `payment_id`; pass it to `GetPayment` for full payment details.
+
+#### CancelPayment
+
+Cancels an authorized payment. Only applicable for payments in `AUTHORIZED` status.
+
+```go
+func (c *Client) CancelPayment(ctx context.Context, req CancelPaymentRequest) (*CancelPaymentResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentID` (string, required): Xendit payment id (39 characters)
+
+**Response:** Same shape as `GetPaymentResponse` with `Status` set to `CANCELED`.
+
+**Timeout:** 15 seconds
+
+**Special Notes:** Use to void an authorization before capture. Returns `INELIGIBLE_TRANSACTION_STATUS` if the payment is not in `AUTHORIZED` status.
+
+#### CapturePayment
+
+Captures an authorized payment to complete collection.
+
+```go
+func (c *Client) CapturePayment(ctx context.Context, req CapturePaymentRequest) (*CapturePaymentResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentID` (string, required): Xendit payment id (39 characters)
+- `CaptureAmount` (DecimalAmount, required): Amount to capture; must be greater than zero and not exceed the authorized amount
+
+**Response:** Same shape as `GetPaymentResponse` with `Status` set to `SUCCEEDED` and `captures` populated.
+
+**Timeout:** 15 seconds
+
+**Special Notes:** Use for manual capture flows (`capture_method=MANUAL`). Returns `CAPTURE_AMOUNT_EXCEEDED` when the capture amount exceeds the authorized amount.
+
 ## Error Handling
 
 ### Error Types
@@ -324,7 +479,7 @@ type APIError struct {
 }
 ```
 
-`CreateSession`, `GetSession`, and `CancelSession` return `*XenditError` for validation failures and Xendit API errors.
+`CreateSession`, `GetSession`, `CancelSession`, `GetPayment`, `CancelPayment`, and `CapturePayment` return `*XenditError` for validation failures and Xendit API errors.
 
 ### Common Error Codes
 
@@ -339,6 +494,11 @@ type APIError struct {
 | `MISSING_CUSTOMER` | Customer object or customer id required |
 | `INVALID_API_KEY` | Invalid or unauthorized API key |
 | `NOT_FOUND` | Payment session does not exist or does not belong to your business |
+| `DATA_NOT_FOUND` | Payment id does not exist or does not belong to your business |
+| `INELIGIBLE_TRANSACTION_STATUS` | Payment is not in the required status for cancel or capture |
+| `CAPTURE_AMOUNT_EXCEEDED` | Capture amount exceeds the authorized amount |
+| `INVALID_MERCHANT_SETTINGS` | Merchant credentials error with the payment provider |
+| `CHANNEL_UNAVAILABLE` | Payment channel is temporarily unavailable |
 | `INVALID_SESSION_STATUS` | Session is not `ACTIVE` and cannot be canceled |
 | `DUPLICATE_ERROR` | Duplicate customer reference id |
 | `SERVER_ERROR` | Xendit internal server error |
@@ -370,9 +530,14 @@ Key request and response types are defined in `models.go`:
 - `CreateSessionRequest` / `CreateSessionResponse`
 - `GetSessionRequest` / `GetSessionResponse`
 - `CancelSessionRequest` / `CancelSessionResponse`
+- `GetPaymentRequest` / `GetPaymentResponse`
+- `CancelPaymentRequest` / `CancelPaymentResponse`
+- `CapturePaymentRequest` / `CapturePaymentResponse`
+- `PaymentCapture`, `PaymentDetails`, `PaymentAuthorizationData`, `DecimalAmount`
 - `CustomerDetails`, `IndividualDetail`
 - `SessionItem`, `ComponentsConfiguration`, `SessionSubscription`
 - `SessionType`, `SessionMode`, `CaptureMethod`, `SessionStatus`
+- `PaymentType`, `PaymentStatus`
 
 ## Examples
 
