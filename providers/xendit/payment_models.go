@@ -186,26 +186,26 @@ type PaymentDetails struct {
 
 // GetPaymentResponse is the response structure for GetPayment.
 type GetPaymentResponse struct {
-	PaymentID         string            `json:"payment_id"`
-	BusinessID        string            `json:"business_id"`
-	ReferenceID       string            `json:"reference_id"`
-	PaymentRequestID  *string           `json:"payment_request_id,omitempty"`
-	PaymentTokenID    *string           `json:"payment_token_id,omitempty"`
-	CustomerID        *string           `json:"customer_id,omitempty"`
-	Type              PaymentType       `json:"type"`
-	Country           string            `json:"country"`
-	Currency          string            `json:"currency"`
-	RequestAmount     DecimalAmount     `json:"request_amount"`
-	CaptureMethod     *CaptureMethod    `json:"capture_method,omitempty"`
-	ChannelCode       string            `json:"channel_code"`
-	ChannelProperties map[string]any    `json:"channel_properties,omitempty"`
-	Captures          []PaymentCapture  `json:"captures,omitempty"`
-	Status            string            `json:"status"`
-	PaymentDetails    *PaymentDetails   `json:"payment_details,omitempty"`
-	FailureCode       *string           `json:"failure_code,omitempty"`
-	Metadata          map[string]string `json:"metadata,omitempty"`
-	Created           time.Time         `json:"created"`
-	Updated           time.Time         `json:"updated"`
+	PaymentID         string                          `json:"payment_id"`
+	BusinessID        string                          `json:"business_id"`
+	ReferenceID       string                          `json:"reference_id"`
+	PaymentRequestID  *string                         `json:"payment_request_id,omitempty"`
+	PaymentTokenID    *string                         `json:"payment_token_id,omitempty"`
+	CustomerID        *string                         `json:"customer_id,omitempty"`
+	Type              PaymentType                     `json:"type"`
+	Country           string                          `json:"country"`
+	Currency          string                          `json:"currency"`
+	RequestAmount     DecimalAmount                   `json:"request_amount"`
+	CaptureMethod     *CaptureMethod                  `json:"capture_method,omitempty"`
+	ChannelCode       string                          `json:"channel_code"`
+	ChannelProperties PaymentRequestChannelProperties `json:"channel_properties,omitempty"`
+	Captures          []PaymentCapture                `json:"captures,omitempty"`
+	Status            string                          `json:"status"`
+	PaymentDetails    *PaymentDetails                 `json:"payment_details,omitempty"`
+	FailureCode       *string                         `json:"failure_code,omitempty"`
+	Metadata          map[string]string               `json:"metadata,omitempty"`
+	Created           time.Time                       `json:"created"`
+	Updated           time.Time                       `json:"updated"`
 }
 
 // CancelPaymentResponse is the response structure for CancelPayment.

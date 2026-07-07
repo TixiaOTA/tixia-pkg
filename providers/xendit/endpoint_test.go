@@ -947,8 +947,10 @@ func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success201() {
 			Currency:         "IDR",
 			RequestAmount:    DecimalAmount{value: "150000"},
 			ChannelCode:      ChannelCodeOVO,
-			ChannelProperties: map[string]any{
-				"account_mobile_number": "+628123456789",
+			ChannelProperties: PaymentRequestChannelProperties{
+				value: map[string]any{
+					"account_mobile_number": "+628123456789",
+				},
 			},
 			Actions: []PaymentRequestAction{
 				{
@@ -1086,8 +1088,10 @@ func (suite *EndpointTestSuite) TestGetPaymentRequest_Success200() {
 			Currency:         "IDR",
 			RequestAmount:    DecimalAmount{value: "150000"},
 			ChannelCode:      ChannelCodeOVO,
-			ChannelProperties: map[string]any{
-				"account_mobile_number": "+628123456789",
+			ChannelProperties: PaymentRequestChannelProperties{
+				value: map[string]any{
+					"account_mobile_number": "+628123456789",
+				},
 			},
 			Status:  string(PaymentRequestStatusSucceeded),
 			Created: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
