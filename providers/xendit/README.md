@@ -272,6 +272,67 @@ paymentRequest, xerr := client.CreatePaymentRequest(context.Background(), xendit
 })
 ```
 
+### Get Payment Request Status
+
+Retrieves the status and details of a payment request. Use to poll after `CreatePaymentRequest`, or to fetch `latest_payment_id` and `payment_token_id`.
+
+```go
+paymentRequest, xerr := client.GetPaymentRequest(context.Background(), xendit.GetPaymentRequestStatusRequest{
+    PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.DataNotFound:
+        log.Printf("Payment request not found: %s", xerr.Message)
+    default:
+        log.Fatalf("GetPaymentRequest failed: %v", xerr)
+    }
+    return
+}
+
+log.Printf("Payment request status: %s", paymentRequest.Status)
+if paymentRequest.LatestPaymentID != nil {
+    log.Printf("Latest payment id: %s", *paymentRequest.LatestPaymentID)
+}
+```
+
+### Cancel Payment Request
+
+Cancels a payment request before the end user completes payment.
+
+```go
+paymentRequest, xerr := client.CancelPaymentRequest(context.Background(), xendit.CancelPaymentRequestStatusRequest{
+    PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+})
+if xerr != nil {
+    switch xerr.ErrorCode {
+    case xendit.IneligibleTransactionStatus:
+        log.Printf("Payment request cannot be canceled: %s", xerr.Message)
+    default:
+        log.Fatalf("CancelPaymentRequest failed: %v", xerr)
+    }
+    return
+}
+
+log.Printf("Payment request canceled: %s", paymentRequest.PaymentRequestID)
+```
+
+### Simulate Payment Request (Test Mode)
+
+Simulates payment completion for a payment request. Test mode only — use a test API key.
+
+```go
+simulation, xerr := client.SimulatePaymentRequest(context.Background(), xendit.SimulatePaymentRequestRequest{
+    PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+})
+if xerr != nil {
+    log.Fatalf("SimulatePaymentRequest failed: %v", xerr)
+}
+
+log.Printf("Simulation status: %s", simulation.Status)
+log.Printf("Simulation message: %s", simulation.Message)
+```
+
 ### Get Payment Status
 
 Retrieves the status and details of a payment. Use after `GetSession` returns a `payment_id`, or to fetch card authorization data.
@@ -580,6 +641,64 @@ func (c *Client) CreatePaymentRequest(ctx context.Context, req CreatePaymentRequ
 
 **Special Notes:** For redirect channels, inspect `actions` when `status` is `REQUIRES_ACTION` and send the customer to the redirect URL. Payment completion is delivered asynchronously via Xendit webhooks. Webhook handling is outside this package.
 
+#### GetPaymentRequest
+
+Retrieves the status and details of a payment request.
+
+```go
+func (c *Client) GetPaymentRequest(ctx context.Context, req GetPaymentRequestStatusRequest) (*CreatePaymentRequestResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentRequestID` (string, required): Xendit payment request id (39 characters, for example `pr-1102feb0-bb79-47ae-9d1e-e69394d3949c`)
+
+**Response:** Same shape as `CreatePaymentRequestResponse`, including optional `latest_payment_id`, `payment_token_id`, `failure_code`, `items`, and `shipping_information` when returned by Xendit.
+
+**Timeout:** 15 seconds
+
+**Special Notes:** Use `latest_payment_id` with `GetPayment` to fetch card authorization data. Use `payment_token_id` for subsequent pay-with-token flows.
+
+#### CancelPaymentRequest
+
+Cancels a payment request and prevents the end user from completing payment.
+
+```go
+func (c *Client) CancelPaymentRequest(ctx context.Context, req CancelPaymentRequestStatusRequest) (*CreatePaymentRequestResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentRequestID` (string, required): Xendit payment request id (39 characters)
+
+**Response:** Same shape as `CreatePaymentRequestResponse` with `Status` set to `CANCELED`.
+
+**Timeout:** 15 seconds
+
+**Special Notes:** Returns `INELIGIBLE_TRANSACTION_STATUS` when the payment request is not in a cancelable status.
+
+#### SimulatePaymentRequest
+
+Simulates payment completion for a payment request in test mode.
+
+```go
+func (c *Client) SimulatePaymentRequest(ctx context.Context, req SimulatePaymentRequestRequest) (*SimulatePaymentRequestResponse, *XenditError)
+```
+
+**Request Parameters:**
+
+- `PaymentRequestID` (string, required): Xendit payment request id (39 characters)
+- `Amount` (*DecimalAmount, optional): Amount to simulate
+
+**Response:**
+
+- `Status` (string): Simulation status — always `PENDING`
+- `Message` (string): Processing message; final result is delivered via webhook
+
+**Timeout:** 15 seconds
+
+**Special Notes:** Test mode only. Use a test API key. Payment completion is delivered asynchronously via Xendit webhooks.
+
 ## Error Handling
 
 ### Error Types
@@ -598,7 +717,7 @@ type APIError struct {
 }
 ```
 
-`CreateSession`, `GetSession`, `CancelSession`, `CreatePaymentRequest`, `GetPayment`, `CancelPayment`, and `CapturePayment` return `*XenditError` for validation failures and Xendit API errors.
+`CreateSession`, `GetSession`, `CancelSession`, `CreatePaymentRequest`, `GetPaymentRequest`, `CancelPaymentRequest`, `SimulatePaymentRequest`, `GetPayment`, `CancelPayment`, and `CapturePayment` return `*XenditError` for validation failures and Xendit API errors.
 
 ### Common Error Codes
 
@@ -654,6 +773,10 @@ Key request and response types are defined in `models.go`:
 - `CancelPaymentRequest` / `CancelPaymentResponse`
 - `CapturePaymentRequest` / `CapturePaymentResponse`
 - `CreatePaymentRequestRequest` / `CreatePaymentRequestResponse`
+- `GetPaymentRequestStatusRequest`
+- `CancelPaymentRequestStatusRequest`
+- `SimulatePaymentRequestRequest` / `SimulatePaymentRequestResponse`
+- `PaymentRequestItem`, `PaymentRequestShippingInformation`
 - `PaymentRequestChannelProperties`, `OVOChannelProperties`, `SingleRedirectChannelProperties`, `DualRedirectChannelProperties`, `TripleRedirectChannelProperties`, `QRISChannelProperties`, `CardsChannelProperties`, `VirtualAccountChannelProperties`, `RetailOutletChannelProperties`, `JeniusPayChannelProperties`
 - `PaymentRequestAction`, `PaymentRequestStatus`
 - `PaymentCapture`, `PaymentDetails`, `PaymentAuthorizationData`, `DecimalAmount`

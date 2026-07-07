@@ -1065,6 +1065,390 @@ func (suite *EndpointTestSuite) TestCreatePaymentRequest_NetworkError() {
 	suite.Equal(InternalServerError, xerr.ErrorCode)
 }
 
+func (suite *EndpointTestSuite) TestGetPaymentRequest_Success200() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+	latestPaymentID := "py-1402feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodGet, r.Method)
+		suite.Equal("/v3/payment_requests/"+paymentRequestID, r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := CreatePaymentRequestResponse{
+			PaymentRequestID: paymentRequestID,
+			BusinessID:       "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:      "order_12345",
+			LatestPaymentID:  strPtr(latestPaymentID),
+			Type:             PaymentTypePay,
+			Country:          "ID",
+			Currency:         "IDR",
+			RequestAmount:    DecimalAmount{value: "150000"},
+			ChannelCode:      ChannelCodeOVO,
+			ChannelProperties: map[string]any{
+				"account_mobile_number": "+628123456789",
+			},
+			Status:  string(PaymentRequestStatusSucceeded),
+			Created: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(paymentRequestID, resp.PaymentRequestID)
+	suite.Equal(string(PaymentRequestStatusSucceeded), resp.Status)
+	suite.NotNil(resp.LatestPaymentID)
+	suite.Equal(latestPaymentID, *resp.LatestPaymentID)
+	suite.Equal("150000", resp.RequestAmount.String())
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestGetPaymentRequest_Success200_StringRequestAmount() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err := io.WriteString(w, `{
+			"payment_request_id": "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+			"business_id": "5f27a14a9bf05c73dd040bc8",
+			"reference_id": "order_12345",
+			"type": "PAY",
+			"country": "ID",
+			"currency": "IDR",
+			"request_amount": "150000.50",
+			"channel_code": "OVO",
+			"status": "SUCCEEDED",
+			"created": "2029-12-31T23:59:59Z",
+			"updated": "2029-12-31T23:59:59Z"
+		}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal("150000.50", resp.RequestAmount.String())
+}
+
+func (suite *EndpointTestSuite) TestGetPaymentRequest_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+	suite.Equal("payment_request_id is required", xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestGetPaymentRequest_NotFound404() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"DATA_NOT_FOUND","message":"ID specified in request cannot be found."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(DataNotFound, xerr.ErrorCode)
+	suite.Equal(http.StatusNotFound, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestGetPaymentRequest_InvalidAPIKey401() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, err := io.WriteString(w, `{"error_code":"INVALID_API_KEY","message":"API key is not authorized for this API"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidAPIKey, xerr.ErrorCode)
+	suite.Equal(http.StatusUnauthorized, xerr.HTTPStatus)
+}
+
+func (suite *EndpointTestSuite) TestGetPaymentRequest_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.GetPaymentRequest(context.Background(), GetPaymentRequestStatusRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+	suite.NotEmpty(xerr.Message)
+}
+
+func (suite *EndpointTestSuite) TestCancelPaymentRequest_Success200() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/v3/payment_requests/"+paymentRequestID+"/cancel", r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		response := CreatePaymentRequestResponse{
+			PaymentRequestID: paymentRequestID,
+			BusinessID:       "5f27a14a9bf05c73dd040bc8",
+			ReferenceID:      "order_12345",
+			Type:             PaymentTypePay,
+			Country:          "ID",
+			Currency:         "IDR",
+			RequestAmount:    DecimalAmount{value: "150000"},
+			ChannelCode:      ChannelCodeDANA,
+			Status:           string(PaymentRequestStatusCanceled),
+			Created:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+			Updated:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelPaymentRequest(context.Background(), CancelPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal(paymentRequestID, resp.PaymentRequestID)
+	suite.Equal(string(PaymentRequestStatusCanceled), resp.Status)
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestCancelPaymentRequest_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.CancelPaymentRequest(context.Background(), CancelPaymentRequestStatusRequest{
+		PaymentRequestID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCancelPaymentRequest_IneligibleStatus400() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := io.WriteString(w, `{"error_code":"INELIGIBLE_TRANSACTION_STATUS","message":"Payment request is not in a cancelable status"}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelPaymentRequest(context.Background(), CancelPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(IneligibleTransactionStatus, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCancelPaymentRequest_NotFound404() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, err := io.WriteString(w, `{"error_code":"DATA_NOT_FOUND","message":"ID specified in request cannot be found."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	resp, xerr := client.CancelPaymentRequest(context.Background(), CancelPaymentRequestStatusRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(DataNotFound, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestCancelPaymentRequest_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.CancelPaymentRequest(context.Background(), CancelPaymentRequestStatusRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestSimulatePaymentRequest_Success200() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedAuth string
+	var receivedBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/v3/payment_requests/"+paymentRequestID+"/simulate", r.URL.Path)
+
+		receivedAuth = r.Header.Get("Authorization")
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		suite.NoError(err)
+		err = json.Unmarshal(bodyBytes, &receivedBody)
+		suite.NoError(err)
+
+		response := SimulatePaymentRequestResponse{
+			Status:  "PENDING",
+			Message: "A simulated payment for the specified payment request id is being processed. You will be informed of the result via a webhook.",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(response)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+	amount := NewDecimalAmountFromFloat(150000)
+
+	resp, xerr := client.SimulatePaymentRequest(context.Background(), SimulatePaymentRequestRequest{
+		PaymentRequestID: paymentRequestID,
+		Amount:           &amount,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal("PENDING", resp.Status)
+	suite.NotEmpty(resp.Message)
+	suite.Equal("150000", receivedBody["amount"])
+
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
+	suite.Equal(expectedAuth, receivedAuth)
+}
+
+func (suite *EndpointTestSuite) TestSimulatePaymentRequest_Success200_EmptyBody() {
+	paymentRequestID := "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c"
+	var receivedBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, err := io.ReadAll(r.Body)
+		suite.NoError(err)
+		err = json.Unmarshal(bodyBytes, &receivedBody)
+		suite.NoError(err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = io.WriteString(w, `{"status":"PENDING","message":"A simulated payment for the specified payment request id is being processed. You will be informed of the result via a webhook."}`)
+		suite.NoError(err)
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.SimulatePaymentRequest(context.Background(), SimulatePaymentRequestRequest{
+		PaymentRequestID: paymentRequestID,
+	})
+
+	suite.Nil(xerr)
+	suite.NotNil(resp)
+	suite.Equal("PENDING", resp.Status)
+	suite.Empty(receivedBody)
+}
+
+func (suite *EndpointTestSuite) TestSimulatePaymentRequest_ValidationFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		suite.Fail("request should not reach server when validation fails")
+	}))
+	defer server.Close()
+
+	client := suite.newTestClient(server.URL)
+
+	resp, xerr := client.SimulatePaymentRequest(context.Background(), SimulatePaymentRequestRequest{
+		PaymentRequestID: "",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InvalidRequest, xerr.ErrorCode)
+}
+
+func (suite *EndpointTestSuite) TestSimulatePaymentRequest_NetworkError() {
+	client := suite.newTestClient("http://127.0.0.1:1")
+
+	resp, xerr := client.SimulatePaymentRequest(context.Background(), SimulatePaymentRequestRequest{
+		PaymentRequestID: "pr-1102feb0-bb79-47ae-9d1e-e69394d3949c",
+	})
+
+	suite.Nil(resp)
+	suite.NotNil(xerr)
+	suite.Equal(InternalServerError, xerr.ErrorCode)
+}
+
 func strPtr(value string) *string {
 	return &value
 }
