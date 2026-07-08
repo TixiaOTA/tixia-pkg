@@ -1296,7 +1296,7 @@ type PriceItineraryServiceCharge struct {
 	ForeignAmount     float64 `json:"foreign_amount"`
 	Total             float64 `json:"total"`
 	Sequence          int     `json:"sequence"`
-	CommissionAgentID string  `json:"commission_agent_id"`
+	CommissionAgentID any     `json:"commission_agent_id"`
 	IsNew             bool    `json:"is_new,omitempty"`
 	IsOriginal        bool    `json:"is_original,omitempty"`
 }
