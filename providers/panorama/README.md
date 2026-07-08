@@ -5,7 +5,10 @@ A Go client library for interacting with the Panorama API, providing airline boo
 ## Features
 
 - **Authentication**: Sign in to the Panorama API using credentials
+- **Account Balance**: Retrieve account balance, credit limit, and point rewards
 - **Booking Management**: Retrieve booking details by order number
+- **Price Itinerary**: Get pricing for a selected itinerary
+- **Sell Journeys**: Sell selected journeys with the same request shape as price itinerary
 - **Booking Cancellation**: Cancel bookings with "booked" status to "void" status
 - **High-Level Usecase**: Convenient wrapper for complex operations like bulk booking cancellation
 - **Error Handling**: Comprehensive error handling with custom error types
@@ -23,6 +26,9 @@ providers/panorama/
 ├── errors.go
 ├── helpers.go
 ├── models.go
+├── models_get_balance.go
+├── models_get_price_itinerary.go
+├── models_sell_journeys.go
 ├── usecase.go
 ├── usecase_model.go
 └── usecase_test.go
@@ -151,6 +157,35 @@ type SignInResponse struct {
 }
 ```
 
+### GetBalance
+
+Retrieves account balance, credit limit, and point rewards.
+
+```go
+func (c *Client) GetBalance(ctx context.Context, req GetBalanceRequest) (*GetBalanceResponse, *PanoramaError)
+```
+
+**Request:**
+
+```go
+type GetBalanceRequest struct {
+    Signature string `json:"signature"` // From SignIn response
+}
+```
+
+**Response:**
+
+```go
+type GetBalanceResponse struct {
+    Result struct {
+        BasicPanoramaResult
+        Response BalanceResponse `json:"response"`
+    } `json:"result"`
+}
+```
+
+**Timeout:** 10 seconds
+
 ### GetBooking
 
 Retrieves booking details by order number.
@@ -178,6 +213,74 @@ type GetBookingResponse struct {
     } `json:"result"`
 }
 ```
+
+### GetPriceItinerary
+
+Gets pricing for a selected itinerary.
+
+```go
+func (c *Client) GetPriceItinerary(ctx context.Context, req GetPriceItineraryRequest) (*GetPriceItineraryResponse, *PanoramaError)
+```
+
+**Request:**
+
+```go
+type GetPriceItineraryRequest struct {
+    Signature  string                   `json:"signature"`   // From SignIn response
+    Adult      int                      `json:"adult"`
+    Child      int                      `json:"child"`
+    Infant     int                      `json:"infant"`
+    Schedules  []PriceItinerarySchedule `json:"schedules"`
+    PromoCodes []any                    `json:"promo_codes"`
+}
+```
+
+**Response:**
+
+```go
+type GetPriceItineraryResponse struct {
+    Result struct {
+        BasicPanoramaResult
+        Response PriceItineraryResponse `json:"response"`
+    } `json:"result"`
+}
+```
+
+**Timeout:** 30 seconds
+
+### SellJourneys
+
+Sells selected journeys. Request is the same as GetPriceItinerary; response uses `sell_journey_provider` and reuses `PriceItineraryProvider` nested types.
+
+```go
+func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*SellJourneysResponse, *PanoramaError)
+```
+
+**Request:**
+
+```go
+type SellJourneysRequest = GetPriceItineraryRequest
+```
+
+**Response:**
+
+```go
+type SellJourneysResponse struct {
+    Result struct {
+        BasicPanoramaResult
+        Response SellJourneyResponse `json:"response"`
+    } `json:"result"`
+}
+
+type SellJourneyResponse struct {
+    TotalPrice          float64                  `json:"total_price"`
+    TotalNta            float64                  `json:"total_nta"`
+    ComplianceText      string                   `json:"compliance_text"`
+    SellJourneyProvider []PriceItineraryProvider `json:"sell_journey_provider"`
+}
+```
+
+**Timeout:** 30 seconds
 
 ### CancelVoid
 
@@ -302,6 +405,22 @@ type SignInResponse struct {
 
 **Timeout:** 10 seconds
 
+#### GetBalance
+
+Retrieves account balance, credit limit, and point rewards.
+
+```go
+func (c *Client) GetBalance(ctx context.Context, req GetBalanceRequest) (*GetBalanceResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+
+**Response:** Returns balance, credit limit, currency codes, and point reward details.
+
+**Timeout:** 10 seconds
+
 #### GetBooking
 
 Retrieves booking details by order number.
@@ -327,6 +446,41 @@ type GetBookingResponse struct {
 ```
 
 **Timeout:** 10 seconds
+
+#### GetPriceItinerary
+
+Gets pricing for a selected itinerary.
+
+```go
+func (c *Client) GetPriceItinerary(ctx context.Context, req GetPriceItineraryRequest) (*GetPriceItineraryResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `Adult` (int, required): Number of adult passengers
+- `Child` (int): Number of child passengers
+- `Infant` (int): Number of infant passengers
+- `Schedules` ([]PriceItinerarySchedule, required): Selected schedules with segment and fare codes
+- `PromoCodes` ([]any): Optional promo codes
+
+**Response:** Returns priced itinerary details including totals, journeys, fares, and passenger pricing.
+
+**Timeout:** 30 seconds
+
+#### SellJourneys
+
+Sells selected journeys. Same request as GetPriceItinerary; response uses `sell_journey_provider`.
+
+```go
+func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*SellJourneysResponse, *PanoramaError)
+```
+
+**Request Parameters:** Same as GetPriceItinerary (`SellJourneysRequest` is a type alias).
+
+**Response:** Returns sold journey details in `sell_journey_provider` with shared `PriceItineraryProvider` nested types.
+
+**Timeout:** 30 seconds
 
 #### CancelVoid
 
