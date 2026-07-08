@@ -11,9 +11,12 @@ import (
 type PanoramaHeaderAction string
 
 const (
-	SignIn     PanoramaHeaderAction = "signin"
-	GetBooking PanoramaHeaderAction = "get_booking"
-	Cancel     PanoramaHeaderAction = "cancel"
+	SignIn            PanoramaHeaderAction = "signin"
+	GetBooking        PanoramaHeaderAction = "get_booking"
+	Cancel            PanoramaHeaderAction = "cancel"
+	GetPriceItinerary PanoramaHeaderAction = "get_price_itinerary"
+	SellJourneys      PanoramaHeaderAction = "sell_journeys"
+	GetBalance        PanoramaHeaderAction = "get_balance"
 )
 
 // --------------------------------- REQUESTS ---------------------------------
