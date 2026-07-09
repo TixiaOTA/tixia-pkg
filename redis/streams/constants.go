@@ -94,6 +94,10 @@ const (
 	TopicInvoiceGenerationResults   string = "invoice.generation.results"
 	TopicTicketGenerationRequested  string = "ticket.generation.requested"
 	TopicTicketGenerationResults    string = "ticket.generation.results"
+	TopicVisaGenerationRequested    string = "visa.pdf.generation.requested"
+	TopicVisaGenerationResults      string = "visa.pdf.generation.results"
+	TopicTourGenerationRequested    string = "tour.pdf.generation.requested"
+	TopicTourGenerationResults      string = "tour.pdf.generation.results"
 )
 
 // Email events
