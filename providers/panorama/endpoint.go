@@ -23,6 +23,10 @@ const (
 	cancelTimeout            = 10 * time.Second
 	getPriceItineraryTimeout = 30 * time.Second
 	sellJourneysTimeout      = 30 * time.Second
+	updateContactsTimeout    = 10 * time.Second
+	updatePassengersTimeout  = 10 * time.Second
+	commitBookingTimeout     = 30 * time.Second
+	issuedTimeout            = 30 * time.Second
 )
 
 // SignIn signs in to the Panorama API
@@ -222,6 +226,166 @@ func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*Se
 	}
 
 	var resp SellJourneysResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// UpdateContacts updates booker and contact persons for a booking session
+func (c *Client) UpdateContacts(ctx context.Context, req UpdateContactsRequest) (*UpdateContactsResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "UpdateContacts")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting UpdateContacts request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(updateContactsTimeout)
+
+	headers := map[string]string{
+		"Action":    string(UpdateContacts),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp UpdateContactsResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// UpdatePassengers updates passengers for a booking session
+func (c *Client) UpdatePassengers(ctx context.Context, req UpdatePassengersRequest) (*UpdatePassengersResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "UpdatePassengers")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting UpdatePassengers request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(updatePassengersTimeout)
+
+	headers := map[string]string{
+		"Action":    string(UpdatePassengers),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp UpdatePassengersResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// CommitBooking commits the current booking session
+func (c *Client) CommitBooking(ctx context.Context, req CommitBookingRequest) (*CommitBookingResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "CommitBooking")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CommitBooking request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(commitBookingTimeout)
+
+	headers := map[string]string{
+		"Action":    string(CommitBooking),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp CommitBookingResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// Issued issues a booking by order number
+func (c *Client) Issued(ctx context.Context, req IssuedRequest) (*IssuedResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "Issued")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting Issued request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(issuedTimeout)
+
+	headers := map[string]string{
+		"Action":    string(Issued),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp IssuedResponse
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)

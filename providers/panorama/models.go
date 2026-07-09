@@ -17,6 +17,10 @@ const (
 	GetPriceItinerary PanoramaHeaderAction = "get_price_itinerary"
 	SellJourneys      PanoramaHeaderAction = "sell_journeys"
 	GetBalance        PanoramaHeaderAction = "get_balance"
+	UpdateContacts    PanoramaHeaderAction = "update_contacts"
+	UpdatePassengers  PanoramaHeaderAction = "update_passengers"
+	CommitBooking     PanoramaHeaderAction = "commit_booking"
+	Issued            PanoramaHeaderAction = "issued"
 )
 
 // --------------------------------- REQUESTS ---------------------------------
@@ -124,10 +128,4 @@ type PanoramaErrorResult struct {
 
 func (e *PanoramaError) Error() string {
 	return fmt.Sprintf("Panorama error (code %d): %s", e.Result.ErrorCode, e.Result.ErrorMsg)
-}
-
-type BookingResponse struct {
-	OrderNumber string `json:"order_number"`
-	State       string `json:"state"`
-	// Add more fields as needed
 }
