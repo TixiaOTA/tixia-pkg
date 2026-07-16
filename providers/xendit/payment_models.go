@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -34,36 +35,41 @@ const (
 
 // DecimalAmount unmarshals Xendit amount fields that may be JSON strings or numbers.
 type DecimalAmount struct {
-	value string
+	value float64
+}
+
+func roundDecimalAmount(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func (a DecimalAmount) Float64() (float64, error) {
-	if a.value == "" {
-		return 0, nil
-	}
-
-	return strconv.ParseFloat(a.value, 64)
+	return a.value, nil
 }
 
 func (a DecimalAmount) String() string {
-	return a.value
+	return strconv.FormatFloat(a.value, 'f', 2, 64)
 }
 
 func (a *DecimalAmount) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
-		a.value = ""
+		a.value = 0
 		return nil
 	}
 
 	var asString string
 	if err := json.Unmarshal(data, &asString); err == nil {
-		a.value = asString
+		parsed, err := strconv.ParseFloat(asString, 64)
+		if err != nil {
+			return fmt.Errorf("decimal amount must be a string or number")
+		}
+
+		a.value = roundDecimalAmount(parsed)
 		return nil
 	}
 
 	var asFloat float64
 	if err := json.Unmarshal(data, &asFloat); err == nil {
-		a.value = strconv.FormatFloat(asFloat, 'f', -1, 64)
+		a.value = roundDecimalAmount(asFloat)
 		return nil
 	}
 
@@ -71,16 +77,12 @@ func (a *DecimalAmount) UnmarshalJSON(data []byte) error {
 }
 
 func (a DecimalAmount) MarshalJSON() ([]byte, error) {
-	if a.value == "" {
-		return []byte("null"), nil
-	}
-
 	return json.Marshal(a.value)
 }
 
-// NewDecimalAmountFromFloat creates a DecimalAmount from a float64 value.
+// NewDecimalAmountFromFloat creates a DecimalAmount from a float64 value rounded to 2 decimal places.
 func NewDecimalAmountFromFloat(value float64) DecimalAmount {
-	return DecimalAmount{value: strconv.FormatFloat(value, 'f', -1, 64)}
+	return DecimalAmount{value: roundDecimalAmount(value)}
 }
 
 func validatePaymentID(paymentID string) error {
