@@ -7,26 +7,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TixiaOTA/tixia-pkg/logger"
 	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
 	"go.uber.org/zap"
 )
 
 const (
 	createPaymentRequestPath      = "/v3/payment_requests"
+	paymentRequestAPIVersion      = "2024-11-11"
 	createPaymentRequestTimeout   = 15 * time.Second
 	getPaymentRequestTimeout      = 15 * time.Second
 	cancelPaymentRequestTimeout   = 15 * time.Second
 	simulatePaymentRequestTimeout = 15 * time.Second
 )
 
+var paymentRequestHeaders = map[string]string{
+	"api-version": paymentRequestAPIVersion,
+}
+
 // CreatePaymentRequest initiates a direct channel payment using Xendit Payments API.
 func (c *Client) CreatePaymentRequest(ctx context.Context, req CreatePaymentRequestRequest) (*CreatePaymentRequestResponse, *XenditError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "xendit", "CreatePaymentRequest")
 	defer span.End()
 
-	sanitizedReq, _ := logger.Sanitize(req)
-	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CreatePaymentRequest request", zap.Any("request", sanitizedReq))
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CreatePaymentRequest request", zap.Any("request", req))
 
 	if err := req.Validate(); err != nil {
 		return nil, &XenditError{
@@ -37,7 +40,7 @@ func (c *Client) CreatePaymentRequest(ctx context.Context, req CreatePaymentRequ
 
 	c.httpClient.SetTimeout(createPaymentRequestTimeout)
 
-	httpResp, err := c.sendRequest(ctx, req, createPaymentRequestPath, nil)
+	httpResp, err := c.sendRequest(ctx, req, createPaymentRequestPath, &paymentRequestHeaders)
 	if err != nil {
 		return nil, toXenditError(err)
 	}
@@ -90,7 +93,7 @@ func (c *Client) GetPaymentRequest(ctx context.Context, req GetPaymentRequestSta
 	c.httpClient.SetTimeout(getPaymentRequestTimeout)
 
 	path := fmt.Sprintf("%s/%s", createPaymentRequestPath, strings.TrimSpace(req.PaymentRequestID))
-	httpResp, err := c.sendGetRequest(ctx, path, nil)
+	httpResp, err := c.sendGetRequest(ctx, path, &paymentRequestHeaders)
 	if err != nil {
 		return nil, toXenditError(err)
 	}
@@ -143,7 +146,7 @@ func (c *Client) CancelPaymentRequest(ctx context.Context, req CancelPaymentRequ
 	c.httpClient.SetTimeout(cancelPaymentRequestTimeout)
 
 	path := fmt.Sprintf("%s/%s/cancel", createPaymentRequestPath, strings.TrimSpace(req.PaymentRequestID))
-	httpResp, err := c.sendPostRequest(ctx, path, nil, nil)
+	httpResp, err := c.sendPostRequest(ctx, path, nil, &paymentRequestHeaders)
 	if err != nil {
 		return nil, toXenditError(err)
 	}
@@ -182,8 +185,7 @@ func (c *Client) SimulatePaymentRequest(ctx context.Context, req SimulatePayment
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "xendit", "SimulatePaymentRequest")
 	defer span.End()
 
-	sanitizedReq, _ := logger.Sanitize(req)
-	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SimulatePaymentRequest request", zap.Any("request", sanitizedReq))
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SimulatePaymentRequest request", zap.Any("request", req))
 
 	if err := req.Validate(); err != nil {
 		return nil, &XenditError{
@@ -195,7 +197,7 @@ func (c *Client) SimulatePaymentRequest(ctx context.Context, req SimulatePayment
 	c.httpClient.SetTimeout(simulatePaymentRequestTimeout)
 
 	path := fmt.Sprintf("%s/%s/simulate", createPaymentRequestPath, strings.TrimSpace(req.PaymentRequestID))
-	httpResp, err := c.sendPostRequest(ctx, path, req, nil)
+	httpResp, err := c.sendPostRequest(ctx, path, req, &paymentRequestHeaders)
 	if err != nil {
 		return nil, toXenditError(err)
 	}

@@ -521,7 +521,7 @@ func (suite *EndpointTestSuite) TestGetPayment_Success200() {
 			Type:             PaymentTypePay,
 			Country:          "ID",
 			Currency:         "IDR",
-			RequestAmount:    DecimalAmount{value: "1999.01"},
+			RequestAmount:    DecimalAmount{value: 1999.01},
 			ChannelCode:      ChannelCodeOVO,
 			Status:           string(PaymentStatusSucceeded),
 			Created:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -681,7 +681,7 @@ func (suite *EndpointTestSuite) TestCancelPayment_Success200() {
 			Type:          PaymentTypePay,
 			Country:       "ID",
 			Currency:      "IDR",
-			RequestAmount: DecimalAmount{value: "1999.01"},
+			RequestAmount: DecimalAmount{value: 1999.01},
 			ChannelCode:   "CARDS",
 			Status:        string(PaymentStatusCanceled),
 			Created:       time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -803,14 +803,14 @@ func (suite *EndpointTestSuite) TestCapturePayment_Success200() {
 			Type:          PaymentTypePay,
 			Country:       "ID",
 			Currency:      "IDR",
-			RequestAmount: DecimalAmount{value: "1999.01"},
+			RequestAmount: DecimalAmount{value: 1999.01},
 			ChannelCode:   "CARDS",
 			Status:        string(PaymentStatusSucceeded),
 			Captures: []PaymentCapture{
 				{
 					CaptureID:        "cap-1502feb0-bb79-47ae-9d1e-e69394d3949c",
 					CaptureTimestamp: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
-					CaptureAmount:    DecimalAmount{value: "1999.01"},
+					CaptureAmount:    DecimalAmount{value: 1999.01},
 				},
 			},
 			Created: time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -836,7 +836,7 @@ func (suite *EndpointTestSuite) TestCapturePayment_Success200() {
 	suite.Equal(paymentID, resp.PaymentID)
 	suite.Equal(string(PaymentStatusSucceeded), resp.Status)
 	suite.Len(resp.Captures, 1)
-	suite.Equal("1999.01", receivedBody["capture_amount"])
+	suite.Equal(1999.01, receivedBody["capture_amount"])
 }
 
 func (suite *EndpointTestSuite) TestCapturePayment_ValidationFailure() {
@@ -931,6 +931,7 @@ func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success201() {
 		suite.Equal("/v3/payment_requests", r.URL.Path)
 
 		receivedAuth = r.Header.Get("Authorization")
+		suite.Equal("2024-11-11", r.Header.Get("api-version"))
 
 		bodyBytes, err := io.ReadAll(r.Body)
 		suite.NoError(err)
@@ -945,7 +946,7 @@ func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success201() {
 			Type:             PaymentTypePay,
 			Country:          "ID",
 			Currency:         "IDR",
-			RequestAmount:    DecimalAmount{value: "150000"},
+			RequestAmount:    DecimalAmount{value: 150000},
 			ChannelCode:      ChannelCodeOVO,
 			ChannelProperties: PaymentRequestChannelProperties{
 				value: map[string]any{
@@ -1000,7 +1001,7 @@ func (suite *EndpointTestSuite) TestCreatePaymentRequest_Success200() {
 			Type:             PaymentTypePay,
 			Country:          "ID",
 			Currency:         "IDR",
-			RequestAmount:    DecimalAmount{value: "150000"},
+			RequestAmount:    DecimalAmount{value: 150000},
 			ChannelCode:      ChannelCodeOVO,
 			Status:           string(PaymentRequestStatusPending),
 			Created:          time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -1086,7 +1087,7 @@ func (suite *EndpointTestSuite) TestGetPaymentRequest_Success200() {
 			Type:             PaymentTypePay,
 			Country:          "ID",
 			Currency:         "IDR",
-			RequestAmount:    DecimalAmount{value: "150000"},
+			RequestAmount:    DecimalAmount{value: 150000},
 			ChannelCode:      ChannelCodeOVO,
 			ChannelProperties: PaymentRequestChannelProperties{
 				value: map[string]any{
@@ -1117,7 +1118,7 @@ func (suite *EndpointTestSuite) TestGetPaymentRequest_Success200() {
 	suite.Equal(string(PaymentRequestStatusSucceeded), resp.Status)
 	suite.NotNil(resp.LatestPaymentID)
 	suite.Equal(latestPaymentID, *resp.LatestPaymentID)
-	suite.Equal("150000", resp.RequestAmount.String())
+	suite.Equal("150000.00", resp.RequestAmount.String())
 
 	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
 	suite.Equal(expectedAuth, receivedAuth)
@@ -1249,7 +1250,7 @@ func (suite *EndpointTestSuite) TestCancelPaymentRequest_Success200() {
 			Type:             PaymentTypePay,
 			Country:          "ID",
 			Currency:         "IDR",
-			RequestAmount:    DecimalAmount{value: "150000"},
+			RequestAmount:    DecimalAmount{value: 150000},
 			ChannelCode:      ChannelCodeDANA,
 			Status:           string(PaymentRequestStatusCanceled),
 			Created:          time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC),
@@ -1389,7 +1390,7 @@ func (suite *EndpointTestSuite) TestSimulatePaymentRequest_Success200() {
 	suite.NotNil(resp)
 	suite.Equal("PENDING", resp.Status)
 	suite.NotEmpty(resp.Message)
-	suite.Equal("150000", receivedBody["amount"])
+	suite.Equal(150000.0, receivedBody["amount"])
 
 	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("test-secret-key:"))
 	suite.Equal(expectedAuth, receivedAuth)

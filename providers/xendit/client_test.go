@@ -689,6 +689,17 @@ func TestSimulatePaymentRequestRequest_Validate_MissingPaymentRequestID(t *testi
 	}
 }
 
+func TestNewDecimalAmountFromFloat_RoundsToTwoDecimals(t *testing.T) {
+	amount := NewDecimalAmountFromFloat(1999.0123)
+	value, err := amount.Float64()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if value != 1999.01 {
+		t.Fatalf("got %v, want %v", value, 1999.01)
+	}
+}
+
 func TestSimulatePaymentRequestRequest_Validate_InvalidAmount(t *testing.T) {
 	amount := NewDecimalAmountFromFloat(0)
 	req := validSimulatePaymentRequestRequest()
