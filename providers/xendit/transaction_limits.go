@@ -67,6 +67,30 @@ func int64Ptr(v int64) *int64 {
 	return &v
 }
 
+var channelCodeToPaymentMethodType = map[string]PaymentMethodType{
+	ChannelCodeQRIS:      PaymentMethodTypeQRCode,
+	ChannelCodeCards:     PaymentMethodTypeCards,
+	ChannelCodeAlfamart:  PaymentMethodTypeOverTheCounter,
+	ChannelCodeIndomaret: PaymentMethodTypeOverTheCounter,
+	ChannelCodeJeniusPay: PaymentMethodTypeOnlineBanking,
+	ChannelCodeOVO:       PaymentMethodTypeEWallet,
+	ChannelCodeDANA:      PaymentMethodTypeEWallet,
+	ChannelCodeLinkAja:   PaymentMethodTypeEWallet,
+	ChannelCodeShopeePay: PaymentMethodTypeEWallet,
+	ChannelCodeGoPay:     PaymentMethodTypeEWallet,
+	ChannelCodeAstraPay:  PaymentMethodTypeEWallet,
+	ChannelCodeNexCash:   PaymentMethodTypeEWallet,
+}
+
+func init() {
+	for code := range virtualAccountChannelCodes {
+		channelCodeToPaymentMethodType[code] = PaymentMethodTypeBankTransfer
+	}
+	for code := range payLaterChannelCodes {
+		channelCodeToPaymentMethodType[code] = PaymentMethodTypePayLater
+	}
+}
+
 // ChannelCodeToPaymentMethodType maps a Xendit channel code to a payment method type.
 func ChannelCodeToPaymentMethodType(channelCode string) (PaymentMethodType, error) {
 	channelCode = strings.ToUpper(strings.TrimSpace(channelCode))
@@ -74,29 +98,12 @@ func ChannelCodeToPaymentMethodType(channelCode string) (PaymentMethodType, erro
 		return "", fmt.Errorf("channel_code is required")
 	}
 
-	switch channelCode {
-	case ChannelCodeQRIS:
-		return PaymentMethodTypeQRCode, nil
-	case ChannelCodeCards:
-		return PaymentMethodTypeCards, nil
-	case ChannelCodeAlfamart, ChannelCodeIndomaret:
-		return PaymentMethodTypeOverTheCounter, nil
-	case ChannelCodeJeniusPay:
-		return PaymentMethodTypeOnlineBanking, nil
-	case ChannelCodeOVO, ChannelCodeDANA, ChannelCodeLinkAja, ChannelCodeShopeePay,
-		ChannelCodeGoPay, ChannelCodeAstraPay, ChannelCodeNexCash:
-		return PaymentMethodTypeEWallet, nil
-	default:
-		if _, ok := virtualAccountChannelCodes[channelCode]; ok {
-			return PaymentMethodTypeBankTransfer, nil
-		}
-
-		if _, ok := payLaterChannelCodes[channelCode]; ok {
-			return PaymentMethodTypePayLater, nil
-		}
-
+	paymentMethodType, ok := channelCodeToPaymentMethodType[channelCode]
+	if !ok {
 		return "", fmt.Errorf("unsupported channel_code %q for transaction limit validation", channelCode)
 	}
+
+	return paymentMethodType, nil
 }
 
 // ValidateTransactionAmount checks amount against Xendit provider limits for the channel's payment type.
