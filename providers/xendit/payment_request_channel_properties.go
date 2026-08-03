@@ -34,7 +34,6 @@ const (
 	ChannelCodeLinkAja                = "LINKAJA"
 	ChannelCodeMandiriVirtualAccount  = "MANDIRI_VIRTUAL_ACCOUNT"
 	ChannelCodeMuamalatVirtualAccount = "MUAMALAT_VIRTUAL_ACCOUNT"
-	ChannelCodeNexCash                = "NEXCASH"
 	ChannelCodeOVO                    = "OVO"
 	ChannelCodePermataVirtualAccount  = "PERMATA_VIRTUAL_ACCOUNT"
 	ChannelCodeQRIS                   = "QRIS"
@@ -373,7 +372,7 @@ func validateChannelProperties(channelCode string, properties PaymentRequestChan
 		return assertChannelPropertiesType[OVOChannelProperties](channelCode, properties)
 	case ChannelCodeDANA, ChannelCodeLinkAja, ChannelCodeShopeePay:
 		return assertChannelPropertiesType[SingleRedirectChannelProperties](channelCode, properties)
-	case ChannelCodeAstraPay, ChannelCodeNexCash:
+	case ChannelCodeAstraPay:
 		return assertChannelPropertiesType[DualRedirectChannelProperties](channelCode, properties)
 	case ChannelCodeGoPay:
 		return assertChannelPropertiesType[TripleRedirectChannelProperties](channelCode, properties)

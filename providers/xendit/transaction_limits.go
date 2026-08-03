@@ -72,14 +72,13 @@ var channelCodeToPaymentMethodType = map[string]PaymentMethodType{
 	ChannelCodeCards:     PaymentMethodTypeCards,
 	ChannelCodeAlfamart:  PaymentMethodTypeOverTheCounter,
 	ChannelCodeIndomaret: PaymentMethodTypeOverTheCounter,
-	ChannelCodeJeniusPay: PaymentMethodTypeOnlineBanking,
+	ChannelCodeJeniusPay: PaymentMethodTypeEWallet,
 	ChannelCodeOVO:       PaymentMethodTypeEWallet,
 	ChannelCodeDANA:      PaymentMethodTypeEWallet,
 	ChannelCodeLinkAja:   PaymentMethodTypeEWallet,
 	ChannelCodeShopeePay: PaymentMethodTypeEWallet,
 	ChannelCodeGoPay:     PaymentMethodTypeEWallet,
 	ChannelCodeAstraPay:  PaymentMethodTypeEWallet,
-	ChannelCodeNexCash:   PaymentMethodTypeEWallet,
 }
 
 func init() {
