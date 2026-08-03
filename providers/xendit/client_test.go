@@ -78,14 +78,15 @@ func validPaymentLinkRequest() CreateSessionRequest {
 	cancelURL := "https://example.com/cancel"
 
 	return CreateSessionRequest{
-		ReferenceID:      "order_12345",
-		Currency:         "IDR",
-		Amount:           150000,
-		Country:          "ID",
-		SessionType:      SessionTypePay,
-		Mode:             SessionModePaymentLink,
-		SuccessReturnURL: &successURL,
-		CancelReturnURL:  &cancelURL,
+		ReferenceID:            "order_12345",
+		Currency:               "IDR",
+		Amount:                 150000,
+		Country:                "ID",
+		SessionType:            SessionTypePay,
+		Mode:                   SessionModePaymentLink,
+		SuccessReturnURL:       &successURL,
+		CancelReturnURL:        &cancelURL,
+		AllowedPaymentChannels: []string{ChannelCodeQRIS},
 	}
 }
 

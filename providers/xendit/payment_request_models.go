@@ -156,7 +156,7 @@ func (r *CreatePaymentRequestRequest) Validate() error {
 		}
 	}
 
-	return nil
+	return ValidateTransactionAmount(r.ChannelCode, r.Currency, amount)
 }
 
 const paymentRequestIDLength = 39

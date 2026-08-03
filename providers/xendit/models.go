@@ -172,6 +172,18 @@ func (r *CreateSessionRequest) Validate() error {
 		}
 	}
 
+	if strings.ToUpper(strings.TrimSpace(r.Currency)) == "IDR" {
+		if len(r.AllowedPaymentChannels) == 0 {
+			return errors.New("allowed_payment_channels is required for IDR sessions")
+		}
+
+		for _, channelCode := range r.AllowedPaymentChannels {
+			if err := ValidateTransactionAmount(channelCode, r.Currency, r.Amount); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
