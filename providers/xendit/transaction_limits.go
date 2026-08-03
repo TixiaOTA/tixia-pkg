@@ -10,13 +10,13 @@ import (
 type PaymentMethodType string
 
 const (
-	PaymentMethodTypePayLater         PaymentMethodType = "PAYLATER"
-	PaymentMethodTypeOverTheCounter   PaymentMethodType = "OVER_THE_COUNTER"
-	PaymentMethodTypeEWallet          PaymentMethodType = "EWALLET"
-	PaymentMethodTypeBankTransfer     PaymentMethodType = "BANK_TRANSFER"
-	PaymentMethodTypeOnlineBanking    PaymentMethodType = "ONLINE_BANKING"
-	PaymentMethodTypeCards            PaymentMethodType = "CARDS"
-	PaymentMethodTypeQRCode           PaymentMethodType = "QR_CODE"
+	PaymentMethodTypePayLater       PaymentMethodType = "PAYLATER"
+	PaymentMethodTypeOverTheCounter PaymentMethodType = "OVER_THE_COUNTER"
+	PaymentMethodTypeEWallet        PaymentMethodType = "EWALLET"
+	PaymentMethodTypeBankTransfer   PaymentMethodType = "BANK_TRANSFER"
+	PaymentMethodTypeOnlineBanking  PaymentMethodType = "ONLINE_BANKING"
+	PaymentMethodTypeCards          PaymentMethodType = "CARDS"
+	PaymentMethodTypeQRCode         PaymentMethodType = "QR_CODE"
 )
 
 var (
@@ -39,14 +39,14 @@ var idrLimitsByPaymentMethodType = map[PaymentMethodType]TransactionLimit{
 	},
 	PaymentMethodTypeBankTransfer: {
 		Min: int64Ptr(10_000),
-		Max: int64Ptr(50_000_000),
+		Max: int64Ptr(2_000_000_000),
 	},
 	PaymentMethodTypeEWallet: {
-		Min: int64Ptr(100),
-		Max: int64Ptr(20_000_000),
+		Min: int64Ptr(1_000),
+		Max: int64Ptr(10_000_000),
 	},
 	PaymentMethodTypeOverTheCounter: {
-		Min: int64Ptr(50_000),
+		Min: int64Ptr(10_000),
 		Max: int64Ptr(5_000_000),
 	},
 	PaymentMethodTypeCards: {
@@ -54,8 +54,12 @@ var idrLimitsByPaymentMethodType = map[PaymentMethodType]TransactionLimit{
 		Max: int64Ptr(200_000_000),
 	},
 	PaymentMethodTypeOnlineBanking: {
-		Min: int64Ptr(1_000),
-		Max: int64Ptr(20_000_000),
+		Min: int64Ptr(100_000),
+		Max: int64Ptr(100_000_000),
+	},
+	PaymentMethodTypePayLater: {
+		Min: int64Ptr(50_000),
+		Max: int64Ptr(6_000_000),
 	},
 }
 
@@ -85,6 +89,10 @@ func ChannelCodeToPaymentMethodType(channelCode string) (PaymentMethodType, erro
 	default:
 		if _, ok := virtualAccountChannelCodes[channelCode]; ok {
 			return PaymentMethodTypeBankTransfer, nil
+		}
+
+		if _, ok := payLaterChannelCodes[channelCode]; ok {
+			return PaymentMethodTypePayLater, nil
 		}
 
 		return "", fmt.Errorf("unsupported channel_code %q for transaction limit validation", channelCode)
