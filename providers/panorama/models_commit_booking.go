@@ -289,7 +289,7 @@ type BookingSegment struct {
 
 // BookingLeg is a leg under a booking segment
 type BookingLeg struct {
-	LegCode                string `json:"leg_code"`
+	LegCode                FlexibleString `json:"leg_code"`
 	Origin                 string `json:"origin"`
 	OriginDisplayName      string `json:"origin_display_name"`
 	Destination            string `json:"destination"`

@@ -1331,11 +1331,11 @@ type PriceItineraryLeg struct {
 	CarrierTypeCode      string `json:"carrier_type_code"`
 	CarrierTypeName      string `json:"carrier_type_name"`
 	CarrierNumber        string `json:"carrier_number"`
-	LegCode              string `json:"leg_code"`
-	RouteCode            string `json:"route_code"`
-	Provider             string `json:"provider"`
-	OperatingAirlineCode string `json:"operating_airline_code"`
-	LegCode2             string `json:"leg_code2"`
+	LegCode              FlexibleString `json:"leg_code"`
+	RouteCode            string         `json:"route_code"`
+	Provider             string         `json:"provider"`
+	OperatingAirlineCode string         `json:"operating_airline_code"`
+	LegCode2             FlexibleString `json:"leg_code2"`
 	EquipmentType        string `json:"equipment_type"`
 	Sequence             int    `json:"sequence"`
 }
