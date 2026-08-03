@@ -12,7 +12,9 @@ import (
 // IDR PAY channel codes supported by CreatePaymentRequest.
 const (
 	ChannelCodeAlfamart               = "ALFAMART"
+	ChannelCodeAkulaku                = "AKULAKU"
 	ChannelCodeAstraPay               = "ASTRAPAY"
+	ChannelCodeAtome                  = "ATOME"
 	ChannelCodeBCAVirtualAccount      = "BCA_VIRTUAL_ACCOUNT"
 	ChannelCodeBJBVirtualAccount      = "BJB_VIRTUAL_ACCOUNT"
 	ChannelCodeBNCVirtualAccount      = "BNC_VIRTUAL_ACCOUNT"
@@ -26,7 +28,9 @@ const (
 	ChannelCodeGoPay                  = "GOPAY"
 	ChannelCodeINAVirtualAccount      = "INA_VIRTUAL_ACCOUNT"
 	ChannelCodeIndomaret              = "INDOMARET"
+	ChannelCodeIndodana               = "INDODANA"
 	ChannelCodeJeniusPay              = "JENIUSPAY"
+	ChannelCodeKredivo                = "KREDIVO"
 	ChannelCodeLinkAja                = "LINKAJA"
 	ChannelCodeMandiriVirtualAccount  = "MANDIRI_VIRTUAL_ACCOUNT"
 	ChannelCodeMuamalatVirtualAccount = "MUAMALAT_VIRTUAL_ACCOUNT"
@@ -36,6 +40,13 @@ const (
 	ChannelCodeQRIS                   = "QRIS"
 	ChannelCodeShopeePay              = "SHOPEEPAY"
 )
+
+var payLaterChannelCodes = map[string]struct{}{
+	ChannelCodeAkulaku:  {},
+	ChannelCodeAtome:    {},
+	ChannelCodeIndodana: {},
+	ChannelCodeKredivo:  {},
+}
 
 var (
 	mobileNumberPattern = regexp.MustCompile(`^(\+|)[0-9]\d{1,22}$`)

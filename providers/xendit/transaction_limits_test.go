@@ -22,6 +22,8 @@ func TestChannelCodeToPaymentMethodType(t *testing.T) {
 		{channelCode: ChannelCodeAlfamart, want: PaymentMethodTypeOverTheCounter},
 		{channelCode: ChannelCodeCards, want: PaymentMethodTypeCards},
 		{channelCode: ChannelCodeJeniusPay, want: PaymentMethodTypeOnlineBanking},
+		{channelCode: ChannelCodeKredivo, want: PaymentMethodTypePayLater},
+		{channelCode: ChannelCodeIndodana, want: PaymentMethodTypePayLater},
 		{channelCode: "", wantErr: true},
 		{channelCode: "UNKNOWN_CHANNEL", wantErr: true},
 	}
@@ -73,6 +75,24 @@ func TestValidateTransactionAmount(t *testing.T) {
 		t.Parallel()
 		err := ValidateTransactionAmount(ChannelCodeOVO, "IDR", 50)
 		assert.ErrorIs(t, err, ErrMinimumTransactionNotMet)
+	})
+
+	t.Run("PAYLATER below minimum", func(t *testing.T) {
+		t.Parallel()
+		err := ValidateTransactionAmount(ChannelCodeKredivo, "IDR", 10_000)
+		assert.ErrorIs(t, err, ErrMinimumTransactionNotMet)
+	})
+
+	t.Run("PAYLATER above maximum", func(t *testing.T) {
+		t.Parallel()
+		err := ValidateTransactionAmount(ChannelCodeKredivo, "IDR", 7_000_000)
+		assert.ErrorIs(t, err, ErrMaximumTransactionExceeded)
+	})
+
+	t.Run("PAYLATER within limits", func(t *testing.T) {
+		t.Parallel()
+		err := ValidateTransactionAmount(ChannelCodeKredivo, "IDR", 1_000_000)
+		assert.NoError(t, err)
 	})
 
 	t.Run("non-IDR currency skipped", func(t *testing.T) {

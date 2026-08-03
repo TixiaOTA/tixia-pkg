@@ -10,13 +10,13 @@ import (
 type PaymentMethodType string
 
 const (
-	PaymentMethodTypePayLater         PaymentMethodType = "PAYLATER"
-	PaymentMethodTypeOverTheCounter   PaymentMethodType = "OVER_THE_COUNTER"
-	PaymentMethodTypeEWallet          PaymentMethodType = "EWALLET"
-	PaymentMethodTypeBankTransfer     PaymentMethodType = "BANK_TRANSFER"
-	PaymentMethodTypeOnlineBanking    PaymentMethodType = "ONLINE_BANKING"
-	PaymentMethodTypeCards            PaymentMethodType = "CARDS"
-	PaymentMethodTypeQRCode           PaymentMethodType = "QR_CODE"
+	PaymentMethodTypePayLater       PaymentMethodType = "PAYLATER"
+	PaymentMethodTypeOverTheCounter PaymentMethodType = "OVER_THE_COUNTER"
+	PaymentMethodTypeEWallet        PaymentMethodType = "EWALLET"
+	PaymentMethodTypeBankTransfer   PaymentMethodType = "BANK_TRANSFER"
+	PaymentMethodTypeOnlineBanking  PaymentMethodType = "ONLINE_BANKING"
+	PaymentMethodTypeCards          PaymentMethodType = "CARDS"
+	PaymentMethodTypeQRCode         PaymentMethodType = "QR_CODE"
 )
 
 var (
@@ -39,14 +39,14 @@ var idrLimitsByPaymentMethodType = map[PaymentMethodType]TransactionLimit{
 	},
 	PaymentMethodTypeBankTransfer: {
 		Min: int64Ptr(10_000),
-		Max: int64Ptr(50_000_000),
+		Max: int64Ptr(2_000_000_000),
 	},
 	PaymentMethodTypeEWallet: {
-		Min: int64Ptr(100),
-		Max: int64Ptr(20_000_000),
+		Min: int64Ptr(1_000),
+		Max: int64Ptr(10_000_000),
 	},
 	PaymentMethodTypeOverTheCounter: {
-		Min: int64Ptr(50_000),
+		Min: int64Ptr(10_000),
 		Max: int64Ptr(5_000_000),
 	},
 	PaymentMethodTypeCards: {
@@ -54,13 +54,41 @@ var idrLimitsByPaymentMethodType = map[PaymentMethodType]TransactionLimit{
 		Max: int64Ptr(200_000_000),
 	},
 	PaymentMethodTypeOnlineBanking: {
-		Min: int64Ptr(1_000),
-		Max: int64Ptr(20_000_000),
+		Min: int64Ptr(100_000),
+		Max: int64Ptr(100_000_000),
+	},
+	PaymentMethodTypePayLater: {
+		Min: int64Ptr(50_000),
+		Max: int64Ptr(6_000_000),
 	},
 }
 
 func int64Ptr(v int64) *int64 {
 	return &v
+}
+
+var channelCodeToPaymentMethodType = map[string]PaymentMethodType{
+	ChannelCodeQRIS:      PaymentMethodTypeQRCode,
+	ChannelCodeCards:     PaymentMethodTypeCards,
+	ChannelCodeAlfamart:  PaymentMethodTypeOverTheCounter,
+	ChannelCodeIndomaret: PaymentMethodTypeOverTheCounter,
+	ChannelCodeJeniusPay: PaymentMethodTypeOnlineBanking,
+	ChannelCodeOVO:       PaymentMethodTypeEWallet,
+	ChannelCodeDANA:      PaymentMethodTypeEWallet,
+	ChannelCodeLinkAja:   PaymentMethodTypeEWallet,
+	ChannelCodeShopeePay: PaymentMethodTypeEWallet,
+	ChannelCodeGoPay:     PaymentMethodTypeEWallet,
+	ChannelCodeAstraPay:  PaymentMethodTypeEWallet,
+	ChannelCodeNexCash:   PaymentMethodTypeEWallet,
+}
+
+func init() {
+	for code := range virtualAccountChannelCodes {
+		channelCodeToPaymentMethodType[code] = PaymentMethodTypeBankTransfer
+	}
+	for code := range payLaterChannelCodes {
+		channelCodeToPaymentMethodType[code] = PaymentMethodTypePayLater
+	}
 }
 
 // ChannelCodeToPaymentMethodType maps a Xendit channel code to a payment method type.
@@ -70,25 +98,12 @@ func ChannelCodeToPaymentMethodType(channelCode string) (PaymentMethodType, erro
 		return "", fmt.Errorf("channel_code is required")
 	}
 
-	switch channelCode {
-	case ChannelCodeQRIS:
-		return PaymentMethodTypeQRCode, nil
-	case ChannelCodeCards:
-		return PaymentMethodTypeCards, nil
-	case ChannelCodeAlfamart, ChannelCodeIndomaret:
-		return PaymentMethodTypeOverTheCounter, nil
-	case ChannelCodeJeniusPay:
-		return PaymentMethodTypeOnlineBanking, nil
-	case ChannelCodeOVO, ChannelCodeDANA, ChannelCodeLinkAja, ChannelCodeShopeePay,
-		ChannelCodeGoPay, ChannelCodeAstraPay, ChannelCodeNexCash:
-		return PaymentMethodTypeEWallet, nil
-	default:
-		if _, ok := virtualAccountChannelCodes[channelCode]; ok {
-			return PaymentMethodTypeBankTransfer, nil
-		}
-
+	paymentMethodType, ok := channelCodeToPaymentMethodType[channelCode]
+	if !ok {
 		return "", fmt.Errorf("unsupported channel_code %q for transaction limit validation", channelCode)
 	}
+
+	return paymentMethodType, nil
 }
 
 // ValidateTransactionAmount checks amount against Xendit provider limits for the channel's payment type.
