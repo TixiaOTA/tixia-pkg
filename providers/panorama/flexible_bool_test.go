@@ -46,6 +46,11 @@ func TestFlexibleBool_UnmarshalJSON(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "empty string",
+			input:    `""`,
+			expected: false,
+		},
+		{
 			name:     "null",
 			input:    `null`,
 			expected: false,
@@ -141,6 +146,21 @@ func TestBookingJourney_UnmarshalIsVtlFlightString(t *testing.T) {
 	}`
 
 	var journey BookingJourney
+	err := json.Unmarshal([]byte(payload), &journey)
+	require.NoError(t, err)
+
+	assert.False(t, journey.IsVtlFlight.Bool())
+}
+
+func TestPriceItineraryJourney_UnmarshalIsVtlFlightEmptyString(t *testing.T) {
+	const payload = `{
+		"origin": "CGK",
+		"destination": "SIN",
+		"is_vtl_flight": "",
+		"sequence": 1
+	}`
+
+	var journey PriceItineraryJourney
 	err := json.Unmarshal([]byte(payload), &journey)
 	require.NoError(t, err)
 
