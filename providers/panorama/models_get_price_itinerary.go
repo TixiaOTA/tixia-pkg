@@ -186,7 +186,7 @@ type PriceItineraryJourney struct {
 	OperatingAirlineCodeList []any                   `json:"operating_airline_code_list"`
 	Segments                 []PriceItinerarySegment `json:"segments"`
 	JourneyRefID             string                  `json:"journey_ref_id"`
-	IsVtlFlight              bool                    `json:"is_vtl_flight"`
+	IsVtlFlight              FlexibleBool            `json:"is_vtl_flight"`
 	Sequence                 int                     `json:"sequence"`
 	SearchBanner             []any                   `json:"search_banner"`
 }
@@ -1314,28 +1314,28 @@ type PriceItineraryFareDetail struct {
 
 // PriceItineraryLeg is a nested type in the GetPriceItinerary response.
 type PriceItineraryLeg struct {
-	Origin               string `json:"origin"`
-	OriginTerminal       string `json:"origin_terminal"`
-	OriginUtc            int    `json:"origin_utc"`
-	OriginCountry        string `json:"origin_country"`
-	DepartureDate        string `json:"departure_date"`
-	Destination          string `json:"destination"`
-	DestinationTerminal  string `json:"destination_terminal"`
-	DestinationUtc       int    `json:"destination_utc"`
-	DestinationCountry   string `json:"destination_country"`
-	ArrivalDate          string `json:"arrival_date"`
-	ElapsedTime          string `json:"elapsed_time"`
-	TransitDuration      string `json:"transit_duration"`
-	CarrierName          string `json:"carrier_name"`
-	CarrierCode          string `json:"carrier_code"`
-	CarrierTypeCode      string `json:"carrier_type_code"`
-	CarrierTypeName      string `json:"carrier_type_name"`
-	CarrierNumber        string `json:"carrier_number"`
+	Origin               string         `json:"origin"`
+	OriginTerminal       string         `json:"origin_terminal"`
+	OriginUtc            int            `json:"origin_utc"`
+	OriginCountry        string         `json:"origin_country"`
+	DepartureDate        string         `json:"departure_date"`
+	Destination          string         `json:"destination"`
+	DestinationTerminal  string         `json:"destination_terminal"`
+	DestinationUtc       int            `json:"destination_utc"`
+	DestinationCountry   string         `json:"destination_country"`
+	ArrivalDate          string         `json:"arrival_date"`
+	ElapsedTime          string         `json:"elapsed_time"`
+	TransitDuration      string         `json:"transit_duration"`
+	CarrierName          string         `json:"carrier_name"`
+	CarrierCode          string         `json:"carrier_code"`
+	CarrierTypeCode      string         `json:"carrier_type_code"`
+	CarrierTypeName      string         `json:"carrier_type_name"`
+	CarrierNumber        string         `json:"carrier_number"`
 	LegCode              FlexibleString `json:"leg_code"`
 	RouteCode            string         `json:"route_code"`
 	Provider             string         `json:"provider"`
 	OperatingAirlineCode string         `json:"operating_airline_code"`
 	LegCode2             FlexibleString `json:"leg_code2"`
-	EquipmentType        string `json:"equipment_type"`
-	Sequence             int    `json:"sequence"`
+	EquipmentType        string         `json:"equipment_type"`
+	Sequence             int            `json:"sequence"`
 }
