@@ -32,6 +32,10 @@ func (b *FlexibleBool) UnmarshalJSON(data []byte) error {
 
 	var asString string
 	if err := json.Unmarshal(data, &asString); err == nil {
+		if asString == "" {
+			*b = false
+			return nil
+		}
 		parsed, err := strconv.ParseBool(asString)
 		if err != nil {
 			return fmt.Errorf("flexible bool string %q is not a valid bool", asString)
