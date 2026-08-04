@@ -245,7 +245,7 @@ type BookingJourney struct {
 	ArrivalDate            string           `json:"arrival_date"`
 	Segments               []BookingSegment `json:"segments"`
 	SearchBanner           []any            `json:"search_banner"`
-	IsVtlFlight            bool             `json:"is_vtl_flight"`
+	IsVtlFlight            FlexibleBool     `json:"is_vtl_flight"`
 	JourneyCode            string           `json:"journey_code"`
 	SectorType             string           `json:"sector_type"`
 }
@@ -290,16 +290,16 @@ type BookingSegment struct {
 // BookingLeg is a leg under a booking segment
 type BookingLeg struct {
 	LegCode                FlexibleString `json:"leg_code"`
-	Origin                 string `json:"origin"`
-	OriginDisplayName      string `json:"origin_display_name"`
-	Destination            string `json:"destination"`
-	DestinationDisplayName string `json:"destination_display_name"`
-	OriginTerminal         string `json:"origin_terminal"`
-	DestinationTerminal    string `json:"destination_terminal"`
-	DepartureDate          string `json:"departure_date"`
-	ArrivalDate            string `json:"arrival_date"`
-	ElapsedTime            string `json:"elapsed_time"`
-	Sequence               int    `json:"sequence"`
+	Origin                 string         `json:"origin"`
+	OriginDisplayName      string         `json:"origin_display_name"`
+	Destination            string         `json:"destination"`
+	DestinationDisplayName string         `json:"destination_display_name"`
+	OriginTerminal         string         `json:"origin_terminal"`
+	DestinationTerminal    string         `json:"destination_terminal"`
+	DepartureDate          string         `json:"departure_date"`
+	ArrivalDate            string         `json:"arrival_date"`
+	ElapsedTime            string         `json:"elapsed_time"`
+	Sequence               int            `json:"sequence"`
 }
 
 // BookingFareDetail is a fare detail under a booking segment
