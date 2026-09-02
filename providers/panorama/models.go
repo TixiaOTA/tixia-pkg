@@ -11,16 +11,21 @@ import (
 type PanoramaHeaderAction string
 
 const (
-	SignIn            PanoramaHeaderAction = "signin"
-	GetBooking        PanoramaHeaderAction = "get_booking"
-	Cancel            PanoramaHeaderAction = "cancel"
-	GetPriceItinerary PanoramaHeaderAction = "get_price_itinerary"
-	SellJourneys      PanoramaHeaderAction = "sell_journeys"
-	GetBalance        PanoramaHeaderAction = "get_balance"
-	UpdateContacts    PanoramaHeaderAction = "update_contacts"
-	UpdatePassengers  PanoramaHeaderAction = "update_passengers"
-	CommitBooking     PanoramaHeaderAction = "commit_booking"
-	Issued            PanoramaHeaderAction = "issued"
+	SignIn              PanoramaHeaderAction = "signin"
+	GetBooking          PanoramaHeaderAction = "get_booking"
+	Cancel              PanoramaHeaderAction = "cancel"
+	GetPriceItinerary   PanoramaHeaderAction = "get_price_itinerary"
+	SellJourneys        PanoramaHeaderAction = "sell_journeys"
+	GetBalance          PanoramaHeaderAction = "get_balance"
+	UpdateContacts      PanoramaHeaderAction = "update_contacts"
+	UpdatePassengers    PanoramaHeaderAction = "update_passengers"
+	CommitBooking       PanoramaHeaderAction = "commit_booking"
+	Issued              PanoramaHeaderAction = "issued"
+	GetFFAvailability   PanoramaHeaderAction = "get_ff_availability"
+	GetSSRAvailability  PanoramaHeaderAction = "get_ssr_availability"
+	GetSeatAvailability PanoramaHeaderAction = "get_seat_availability"
+	SellSSRs            PanoramaHeaderAction = "sell_ssrs"
+	AssignSeats         PanoramaHeaderAction = "assign_seats"
 )
 
 // --------------------------------- REQUESTS ---------------------------------
