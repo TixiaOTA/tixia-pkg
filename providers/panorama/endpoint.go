@@ -27,6 +27,12 @@ const (
 	updatePassengersTimeout  = 10 * time.Second
 	commitBookingTimeout     = 30 * time.Second
 	issuedTimeout            = 30 * time.Second
+
+	getFFAvailabilityTimeout   = 10 * time.Second
+	getSSRAvailabilityTimeout  = 10 * time.Second
+	getSeatAvailabilityTimeout = 10 * time.Second
+	sellSSRsTimeout            = 30 * time.Second
+	assignSeatsTimeout         = 30 * time.Second
 )
 
 // SignIn signs in to the Panorama API
@@ -430,6 +436,206 @@ func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBoo
 	}
 
 	var resp GetBookingResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetFFAvailability gets the frequent flyer program availability for a booking session
+func (c *Client) GetFFAvailability(ctx context.Context, req GetFFAvailabilityRequest) (*GetFFAvailabilityResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetFFAvailability")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetFFAvailability request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(getFFAvailabilityTimeout)
+
+	headers := map[string]string{
+		"Action":    string(GetFFAvailability),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp GetFFAvailabilityResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetSSRAvailability gets the sellable SSR (ancillary service) availability for a booking session
+func (c *Client) GetSSRAvailability(ctx context.Context, req GetSSRAvailabilityRequest) (*GetSSRAvailabilityResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetSSRAvailability")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetSSRAvailability request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(getSSRAvailabilityTimeout)
+
+	headers := map[string]string{
+		"Action":    string(GetSSRAvailability),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp GetSSRAvailabilityResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetSeatAvailability gets the seat map availability for a booking session
+func (c *Client) GetSeatAvailability(ctx context.Context, req GetSeatAvailabilityRequest) (*GetSeatAvailabilityResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetSeatAvailability")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetSeatAvailability request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(getSeatAvailabilityTimeout)
+
+	headers := map[string]string{
+		"Action":    string(GetSeatAvailability),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp GetSeatAvailabilityResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// SellSSRs sells the selected SSRs (ancillary services) for a booking session
+func (c *Client) SellSSRs(ctx context.Context, req SellSSRsRequest) (*SellSSRsResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "SellSSRs")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SellSSRs request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(sellSSRsTimeout)
+
+	headers := map[string]string{
+		"Action":    string(SellSSRs),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp SellSSRsResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// AssignSeats assigns the selected seats for a booking session
+func (c *Client) AssignSeats(ctx context.Context, req AssignSeatsRequest) (*AssignSeatsResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "AssignSeats")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting AssignSeats request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	c.httpClient.SetTimeout(assignSeatsTimeout)
+
+	headers := map[string]string{
+		"Action":    string(AssignSeats),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp AssignSeatsResponse
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)
