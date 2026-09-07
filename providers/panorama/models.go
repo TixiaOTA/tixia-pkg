@@ -28,6 +28,14 @@ const (
 	AssignSeats         PanoramaHeaderAction = "assign_seats"
 )
 
+// BookingFeeType constants for filtering passenger fees
+const (
+	BookingFeeTypeSSR  = "SSR"  // Add-on (bagasi/meal)
+	BookingFeeTypeSEAT = "SEAT" // Seat
+	BookingFeeTypeTax  = "TAX"  // Tax
+	BookingFeeTypeFare = "FARE" // Base fare
+)
+
 // --------------------------------- REQUESTS ---------------------------------
 
 // GetBookingRequest is the request structure for GetBooking
