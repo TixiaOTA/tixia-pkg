@@ -142,6 +142,14 @@ type BookingPhone struct {
 	CallingNumber string `json:"calling_number"`
 }
 
+// BookingFee mewakili satu fee pada passenger di response commit_booking
+type BookingFee struct {
+	FeeType     string `json:"fee_type"` // "SSR", "SEAT", "TAX", "FARE", dll
+	Amount      int64  `json:"amount"`
+	Currency    string `json:"currency"`
+	Description string `json:"description,omitempty"`
+}
+
 // BookingPassenger is a passenger on a booking
 type BookingPassenger struct {
 	Name                        string                              `json:"name"`
@@ -163,7 +171,7 @@ type BookingPassenger struct {
 	Description                 any                                 `json:"description"`
 	SaleServiceCharges          map[string]map[string]ServiceCharge `json:"sale_service_charges"`
 	ServiceChargeDetails        []ServiceChargeDetail               `json:"service_charge_details"`
-	Fees                        []any                               `json:"fees"`
+	Fees                        []BookingFee                        `json:"fees"`
 	Behaviors                   json.RawMessage                     `json:"behaviors"`
 	SeqID                       string                              `json:"seq_id"`
 	PaxType                     string                              `json:"pax_type"`
@@ -229,7 +237,7 @@ type ProviderBooking struct {
 	DuplicatesBackend      string           `json:"duplicates_backend"`
 	VendorRemarks          []any            `json:"vendor_remarks"`
 	IsHaltIssued           bool             `json:"is_halt_issued"`
-	Fees                   []any            `json:"fees"`
+	Fees                   []BookingFee     `json:"fees"`
 	PromoCodes             []any            `json:"promo_codes"`
 }
 
@@ -323,7 +331,7 @@ type BookingTicket struct {
 	FfNumber                    string `json:"ff_number"`
 	FfCode                      string `json:"ff_code"`
 	FfName                      string `json:"ff_name"`
-	Fees                        []any  `json:"fees"`
+	Fees                        []BookingFee `json:"fees"`
 	Sequence                    any    `json:"sequence"`
 	PassengerNumber             int    `json:"passenger_number"`
 	Title                       string `json:"title"`
