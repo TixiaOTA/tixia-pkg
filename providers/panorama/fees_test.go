@@ -18,26 +18,26 @@ func TestFilterFeesByType(t *testing.T) {
 	t.Run("filter SSR fees", func(t *testing.T) {
 		result := FilterFeesByType(fees, BookingFeeTypeSSR)
 		assert.Len(t, result, 2)
-		assert.Equal(t, int64(50000), result[0].Amount)
-		assert.Equal(t, int64(25000), result[1].Amount)
+		assert.Equal(t, int64(50000), result[0].Amount.Int64())
+		assert.Equal(t, int64(25000), result[1].Amount.Int64())
 	})
 
 	t.Run("filter SEAT fees", func(t *testing.T) {
 		result := FilterFeesByType(fees, BookingFeeTypeSEAT)
 		assert.Len(t, result, 1)
-		assert.Equal(t, int64(30000), result[0].Amount)
+		assert.Equal(t, int64(30000), result[0].Amount.Int64())
 	})
 
 	t.Run("filter TAX fees", func(t *testing.T) {
 		result := FilterFeesByType(fees, BookingFeeTypeTax)
 		assert.Len(t, result, 1)
-		assert.Equal(t, int64(100000), result[0].Amount)
+		assert.Equal(t, int64(100000), result[0].Amount.Int64())
 	})
 
 	t.Run("filter FARE fees", func(t *testing.T) {
 		result := FilterFeesByType(fees, BookingFeeTypeFare)
 		assert.Len(t, result, 1)
-		assert.Equal(t, int64(1500000), result[0].Amount)
+		assert.Equal(t, int64(1500000), result[0].Amount.Int64())
 	})
 
 	t.Run("no matches returns nil", func(t *testing.T) {

@@ -51,6 +51,12 @@ func TestBookingFeeMetadataRoundTrip(t *testing.T) {
 	require.NotContains(t, string(encoded), "description_items")
 }
 
+func TestBookingFeeAmountAcceptsDecimalNumber(t *testing.T) {
+	var fee BookingFee
+	require.NoError(t, json.Unmarshal([]byte(`{"fee_type":"SEAT","amount":1521000.0,"currency":"IDR"}`), &fee))
+	require.Equal(t, int64(1521000), fee.Amount.Int64())
+}
+
 func TestBookingFeeMinimalPayload(t *testing.T) {
 	var fee BookingFee
 	require.NoError(t, json.Unmarshal([]byte(`{"fee_type":"SEAT","amount":30000,"currency":"IDR"}`), &fee))

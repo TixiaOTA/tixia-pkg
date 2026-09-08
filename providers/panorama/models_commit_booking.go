@@ -151,7 +151,7 @@ type BookingFee struct {
 	FeeValue         string          `json:"fee_value,omitempty"`
 	FeeClass         string          `json:"fee_class,omitempty"`
 	FeeCategory      string          `json:"fee_category,omitempty"`
-	Amount           int64           `json:"amount"`
+	Amount           FlexibleNumber  `json:"amount"`
 	Currency         string          `json:"currency"`
 	Description      string          `json:"description,omitempty"`
 	DescriptionItems []string        `json:"-"`
