@@ -3,6 +3,7 @@ package panorama
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 // --------------------------------- COMMIT BOOKING REQUEST ---------------------------------
@@ -144,10 +145,52 @@ type BookingPhone struct {
 
 // BookingFee mewakili satu fee pada passenger di response commit_booking
 type BookingFee struct {
-	FeeType     string `json:"fee_type"` // "SSR", "SEAT", "TAX", "FARE", dll
-	Amount      int64  `json:"amount"`
-	Currency    string `json:"currency"`
-	Description string `json:"description,omitempty"`
+	FeeType          string          `json:"fee_type"` // "SSR", "SEAT", "TAX", "FARE", dll
+	FeeCode          string          `json:"fee_code,omitempty"`
+	FeeName          string          `json:"fee_name,omitempty"`
+	FeeValue         string          `json:"fee_value,omitempty"`
+	FeeClass         string          `json:"fee_class,omitempty"`
+	FeeCategory      string          `json:"fee_category,omitempty"`
+	Amount           int64           `json:"amount"`
+	Currency         string          `json:"currency"`
+	Description      string          `json:"description,omitempty"`
+	DescriptionItems []string        `json:"-"`
+	ServiceCharges   []ServiceCharge `json:"service_charges,omitempty"`
+	Legs             []BookingLeg    `json:"legs,omitempty"`
+	JourneyCode      string          `json:"journey_code,omitempty"`
+	Sequence         int             `json:"sequence,omitempty"`
+}
+
+// UnmarshalJSON accepts Panorama descriptions encoded as a string or []string.
+func (f *BookingFee) UnmarshalJSON(data []byte) error {
+	type bookingFee BookingFee
+	var value struct {
+		*bookingFee
+		Description json.RawMessage `json:"description"`
+	}
+	value.bookingFee = (*bookingFee)(f)
+	f.Description = ""
+	f.DescriptionItems = nil
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+
+	if len(value.Description) == 0 || string(value.Description) == "null" {
+		return nil
+	}
+	var description string
+	if err := json.Unmarshal(value.Description, &description); err == nil {
+		f.Description = description
+		f.DescriptionItems = nil
+		return nil
+	}
+	var items []string
+	if err := json.Unmarshal(value.Description, &items); err != nil {
+		return err
+	}
+	f.DescriptionItems = items
+	f.Description = strings.Join(items, ", ")
+	return nil
 }
 
 // BookingPassenger is a passenger on a booking
@@ -324,28 +367,28 @@ type BookingFareDetail struct {
 
 // BookingTicket is a ticket under a provider booking
 type BookingTicket struct {
-	TicketID                    string `json:"ticket_id"`
-	Passenger                   string `json:"passenger"`
-	PaxType                     string `json:"pax_type"`
-	TicketNumber                string `json:"ticket_number"`
-	FfNumber                    string `json:"ff_number"`
-	FfCode                      string `json:"ff_code"`
-	FfName                      string `json:"ff_name"`
+	TicketID                    string       `json:"ticket_id"`
+	Passenger                   string       `json:"passenger"`
+	PaxType                     string       `json:"pax_type"`
+	TicketNumber                string       `json:"ticket_number"`
+	FfNumber                    string       `json:"ff_number"`
+	FfCode                      string       `json:"ff_code"`
+	FfName                      string       `json:"ff_name"`
 	Fees                        []BookingFee `json:"fees"`
-	Sequence                    any    `json:"sequence"`
-	PassengerNumber             int    `json:"passenger_number"`
-	Title                       string `json:"title"`
-	FirstName                   string `json:"first_name"`
-	LastName                    string `json:"last_name"`
-	BirthDate                   string `json:"birth_date"`
-	IdentityType                string `json:"identity_type"`
-	IdentityNumber              string `json:"identity_number"`
-	IdentityExpdate             string `json:"identity_expdate"`
-	IdentityCountryOfIssuedCode string `json:"identity_country_of_issued_code"`
-	TicketNumberList            []any  `json:"ticket_number_list"`
-	TicketURLList               []any  `json:"ticket_url_list"`
-	RizText                     string `json:"riz_text"`
-	PassengerDesc               string `json:"passenger_desc"`
+	Sequence                    any          `json:"sequence"`
+	PassengerNumber             int          `json:"passenger_number"`
+	Title                       string       `json:"title"`
+	FirstName                   string       `json:"first_name"`
+	LastName                    string       `json:"last_name"`
+	BirthDate                   string       `json:"birth_date"`
+	IdentityType                string       `json:"identity_type"`
+	IdentityNumber              string       `json:"identity_number"`
+	IdentityExpdate             string       `json:"identity_expdate"`
+	IdentityCountryOfIssuedCode string       `json:"identity_country_of_issued_code"`
+	TicketNumberList            []any        `json:"ticket_number_list"`
+	TicketURLList               []any        `json:"ticket_url_list"`
+	RizText                     string       `json:"riz_text"`
+	PassengerDesc               string       `json:"passenger_desc"`
 }
 
 // BookingRule is a rule entry under a provider booking
