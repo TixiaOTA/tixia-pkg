@@ -34,6 +34,12 @@ providers/panorama/
 └── usecase_test.go
 ```
 
+## Booking fee metadata
+
+`BookingFee` from `commit_booking` exposes provider metadata including `FeeCode`, `FeeName`, `FeeValue`, `FeeCategory`, `JourneyCode`, `Legs`, `Amount`, and `Currency`. `FeeType` distinguishes add-ons (`SSR`), seats (`SEAT`), taxes (`TAX`), base fares (`FARE`), and other provider fees. `FeeCode`, `JourneyCode`, and `Legs` are returned by Panorama and can be used to correlate sold add-ons with the original selection.
+
+Panorama may return `description` as either a string or an array of strings. Both forms are accepted; array items are joined with `", "` in `Description` and retained in `DescriptionItems`. Empty arrays and `null` are valid.
+
 ## Installation
 
 ```bash
