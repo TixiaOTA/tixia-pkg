@@ -9,7 +9,7 @@ import (
 
 // SellSSRsRequest is the request structure for SellSSRs
 type SellSSRsRequest struct {
-	Signature       string            `json:"signature"`
+	Signature       string            `json:"signature" log:"redact"`
 	SellSSRsRequest []SellSSRProvider `json:"sell_ssrs_request"`
 }
 

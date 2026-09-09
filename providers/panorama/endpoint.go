@@ -491,7 +491,8 @@ func (c *Client) GetSSRAvailability(ctx context.Context, req GetSSRAvailabilityR
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetSSRAvailability")
 	defer span.End()
 
-	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetSSRAvailability request", zap.Any("request", req))
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetSSRAvailability request", zap.Any("request", sanitizedReq))
 
 	if err := req.Validate(); err != nil {
 		return nil, buildPanoramaError(InvalidRequest, err.Error())
@@ -571,7 +572,8 @@ func (c *Client) SellSSRs(ctx context.Context, req SellSSRsRequest) (*SellSSRsRe
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "SellSSRs")
 	defer span.End()
 
-	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SellSSRs request", zap.Any("request", req))
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting SellSSRs request", zap.Any("request", sanitizedReq))
 
 	if err := req.Validate(); err != nil {
 		return nil, buildPanoramaError(InvalidRequest, err.Error())
