@@ -8,7 +8,7 @@ import "errors"
 // The signature is the only parameter; it is sent in the Action/Signature headers
 // and echoed in the request body (see the GetBalanceRequest pattern).
 type GetSSRAvailabilityRequest struct {
-	Signature string `json:"signature"`
+	Signature string `json:"signature" log:"redact"`
 }
 
 func (r *GetSSRAvailabilityRequest) Validate() error {

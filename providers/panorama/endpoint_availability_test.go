@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/TixiaOTA/tixia-pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -446,6 +447,27 @@ func TestSellSSRs_ParseResponse(t *testing.T) {
 	require.Len(t, provider.Passengers, 1)
 	assert.Equal(t, 0, provider.Passengers[0].PassengerNumber)
 	assert.Equal(t, "ADT", provider.Passengers[0].PaxType)
+}
+
+func TestSSRRequests_RedactSignature(t *testing.T) {
+	const signature = "sentinel-signature-do-not-log"
+
+	tests := map[string]any{
+		"get SSR availability": GetSSRAvailabilityRequest{Signature: signature},
+		"sell SSRs":            SellSSRsRequest{Signature: signature},
+	}
+
+	for name, request := range tests {
+		t.Run(name, func(t *testing.T) {
+			sanitized, err := logger.Sanitize(request)
+			require.NoError(t, err)
+			assert.Equal(t, "[REDACTED]", sanitized["signature"])
+
+			logged, err := json.Marshal(sanitized)
+			require.NoError(t, err)
+			assert.NotContains(t, string(logged), signature)
+		})
+	}
 }
 
 func TestSellSSRsRequest_Marshal(t *testing.T) {
