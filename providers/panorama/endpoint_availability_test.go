@@ -626,15 +626,11 @@ func TestAssignSeats_ParseResponse(t *testing.T) {
 func TestAssignSeatsRequest_Marshal(t *testing.T) {
 	req := AssignSeatsRequest{
 		Signature: "sig-123",
-		AssignSeatsRequest: []AssignSeatProvider{
+		SegmentSeatRequest: []AssignSeat{
 			{
-				AssignSeats: []AssignSeat{
-					{
-						SegmentCode: "SIA-SQ965-1",
-						Passengers:  []AssignSeatPassenger{{PassengerNumber: 0, SeatCode: "A31"}},
-					},
-				},
-				Provider: "sia",
+				SegmentCode: "SIA-SQ965-1",
+				Provider:    "sia",
+				Passengers:  []AssignSeatPassenger{{PassengerNumber: 0, SeatCode: "A31"}},
 			},
 		},
 	}
@@ -643,17 +639,13 @@ func TestAssignSeatsRequest_Marshal(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{
 		"signature": "sig-123",
-		"assign_seats_request": [
+		"segment_seat_request": [
 			{
-				"assign_seats": [
-					{
-						"segment_code": "SIA-SQ965-1",
-						"passengers": [
-							{ "passenger_number": 0, "seat_code": "A31" }
-						]
-					}
-				],
-				"provider": "sia"
+				"segment_code": "SIA-SQ965-1",
+				"provider": "sia",
+				"passengers": [
+					{ "passenger_number": 0, "seat_code": "A31" }
+				]
 			}
 		]
 	}`, string(body))
@@ -662,15 +654,11 @@ func TestAssignSeatsRequest_Marshal(t *testing.T) {
 func TestAssignSeatsRequest_Validate(t *testing.T) {
 	valid := AssignSeatsRequest{
 		Signature: "sig-123",
-		AssignSeatsRequest: []AssignSeatProvider{
+		SegmentSeatRequest: []AssignSeat{
 			{
-				AssignSeats: []AssignSeat{
-					{
-						SegmentCode: "SIA-SQ965-1",
-						Passengers:  []AssignSeatPassenger{{PassengerNumber: 0, SeatCode: "A31"}},
-					},
-				},
-				Provider: "sia",
+				SegmentCode: "SIA-SQ965-1",
+				Provider:    "sia",
+				Passengers:  []AssignSeatPassenger{{PassengerNumber: 0, SeatCode: "A31"}},
 			},
 		},
 	}
@@ -682,21 +670,21 @@ func TestAssignSeatsRequest_Validate(t *testing.T) {
 		require.Error(t, invalid.Validate())
 	})
 
-	t.Run("empty assign_seats_request", func(t *testing.T) {
+	t.Run("empty segment_seat_request", func(t *testing.T) {
 		invalid := valid
-		invalid.AssignSeatsRequest = nil
+		invalid.SegmentSeatRequest = nil
 		require.Error(t, invalid.Validate())
 	})
 
 	t.Run("missing segment_code", func(t *testing.T) {
 		invalid := valid
-		invalid.AssignSeatsRequest[0].AssignSeats[0].SegmentCode = ""
+		invalid.SegmentSeatRequest[0].SegmentCode = ""
 		require.Error(t, invalid.Validate())
 	})
 
 	t.Run("missing seat_code", func(t *testing.T) {
 		invalid := valid
-		invalid.AssignSeatsRequest[0].AssignSeats[0].Passengers[0].SeatCode = ""
+		invalid.SegmentSeatRequest[0].Passengers[0].SeatCode = ""
 		require.Error(t, invalid.Validate())
 	})
 }

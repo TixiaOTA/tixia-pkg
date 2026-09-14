@@ -9,50 +9,40 @@ import (
 
 // AssignSeatsRequest is the request structure for AssignSeats
 type AssignSeatsRequest struct {
-	Signature          string               `json:"signature"`
-	AssignSeatsRequest []AssignSeatProvider `json:"assign_seats_request"`
+	Signature          string       `json:"signature"`
+	SegmentSeatRequest []AssignSeat `json:"segment_seat_request"`
 }
 
 func (r *AssignSeatsRequest) Validate() error {
 	if r.Signature == "" {
 		return errors.New("signature is required")
 	}
-	if len(r.AssignSeatsRequest) == 0 {
-		return errors.New("assign_seats_request is required")
+	if len(r.SegmentSeatRequest) == 0 {
+		return errors.New("segment_seat_request is required")
 	}
-	for i, provider := range r.AssignSeatsRequest {
-		if provider.Provider == "" {
-			return fmt.Errorf("assign_seats_request[%d].provider is required", i)
+	for i, segment := range r.SegmentSeatRequest {
+		if segment.SegmentCode == "" {
+			return fmt.Errorf("segment_seat_request[%d].segment_code is required", i)
 		}
-		if len(provider.AssignSeats) == 0 {
-			return fmt.Errorf("assign_seats_request[%d].assign_seats is required", i)
+		if segment.Provider == "" {
+			return fmt.Errorf("segment_seat_request[%d].provider is required", i)
 		}
-		for j, assignSeat := range provider.AssignSeats {
-			if assignSeat.SegmentCode == "" {
-				return fmt.Errorf("assign_seats_request[%d].assign_seats[%d].segment_code is required", i, j)
-			}
-			if len(assignSeat.Passengers) == 0 {
-				return fmt.Errorf("assign_seats_request[%d].assign_seats[%d].passengers is required", i, j)
-			}
-			for k, passenger := range assignSeat.Passengers {
-				if passenger.SeatCode == "" {
-					return fmt.Errorf("assign_seats_request[%d].assign_seats[%d].passengers[%d].seat_code is required", i, j, k)
-				}
+		if len(segment.Passengers) == 0 {
+			return fmt.Errorf("segment_seat_request[%d].passengers is required", i)
+		}
+		for j, passenger := range segment.Passengers {
+			if passenger.SeatCode == "" {
+				return fmt.Errorf("segment_seat_request[%d].passengers[%d].seat_code is required", i, j)
 			}
 		}
 	}
 	return nil
 }
 
-// AssignSeatProvider is a provider block in the AssignSeats request
-type AssignSeatProvider struct {
-	AssignSeats []AssignSeat `json:"assign_seats"`
-	Provider    string       `json:"provider"`
-}
-
-// AssignSeat is a seat assignment for a segment
+// AssignSeat is a seat assignment for a segment.
 type AssignSeat struct {
 	SegmentCode string                `json:"segment_code"`
+	Provider    string                `json:"provider"`
 	Passengers  []AssignSeatPassenger `json:"passengers"`
 }
 
