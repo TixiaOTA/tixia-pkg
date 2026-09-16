@@ -92,7 +92,7 @@ type Seat struct {
 	SeatCode       string              `json:"seat_code"`
 	Column         string              `json:"column"`
 	Availability   int                 `json:"availability"`
-	SeatType       string              `json:"seat_type"`
+	SeatType       FlexibleString      `json:"seat_type"`
 	SeatRef        string              `json:"seat_ref"`
 	ServiceCharges []SeatServiceCharge `json:"service_charges"`
 	BaseFare       float64             `json:"base_fare"`

@@ -306,7 +306,7 @@ func TestGetSeatAvailability_ParseResponse(t *testing.T) {
 	assert.Equal(t, "A31", seat.SeatCode)
 	assert.Equal(t, "A", seat.Column)
 	assert.Equal(t, 0, seat.Availability)
-	assert.Equal(t, "W", seat.SeatType)
+	assert.Equal(t, FlexibleString("W"), seat.SeatType)
 	assert.Equal(t, "REF-31A", seat.SeatRef)
 	assert.Equal(t, float64(150000), seat.BaseFare)
 	require.Len(t, seat.ServiceCharges, 1)
@@ -351,7 +351,7 @@ func TestGetSeatAvailability_ParseNumericRowNumbers(t *testing.T) {
 														"seat_code": "A31",
 														"column": "A",
 														"availability": 1,
-														"seat_type": "N",
+														"seat_type": 1,
 														"seat_ref": "REF-31A",
 														"description": [],
 														"sequence": 1
@@ -381,6 +381,7 @@ func TestGetSeatAvailability_ParseNumericRowNumbers(t *testing.T) {
 	assert.Equal(t, FlexibleString("47"), cabin.LastRowNumber)
 	assert.Equal(t, FlexibleString("31"), cabin.SeatRows[0].RowNumber)
 	assert.Equal(t, 1, cabin.SeatRows[0].Seats[0].Availability)
+	assert.Equal(t, FlexibleString("1"), cabin.SeatRows[0].Seats[0].SeatType)
 }
 
 func TestGetSeatAvailabilityRequest_Validate(t *testing.T) {
