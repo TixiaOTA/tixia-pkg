@@ -26,17 +26,22 @@ func buildHeaders(additionalHeaders *map[string]string) map[string]string {
 	return headers
 }
 
-func (c *Client) sendRequest(ctx context.Context, req any, path string, headers *map[string]string) (*http.Response, error) {
+func (c *Client) sendRequest(ctx context.Context, req any, path string, headers *map[string]string, options ...client.RequestOptions) (*http.Response, error) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "sendRequest")
 	defer span.End()
 
 	headersMap := buildHeaders(headers)
 
-	httpResp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
+	postRequest := client.PostJSONRequest{
 		Path:    path,
 		Body:    req,
 		Headers: &headersMap,
-	})
+	}
+	if len(options) > 0 {
+		postRequest.Options = &options[0]
+	}
+
+	httpResp, err := c.httpClient.PostJSON(ctx, postRequest)
 	if err != nil {
 		sanitizedReq, _ := logger.Sanitize(req)
 		c.logger.WithTrace(ctx, currentSpanId).Error("Error sending request: ",

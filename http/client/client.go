@@ -83,16 +83,27 @@ func (c *HTTPClient) SetBackoffMultiplier(backoffMultiplier float64) {
 	c.config.Retry.BackoffMultiplier = backoffMultiplier
 }
 
-// Get makes a GET request to the given path. Base URL is prepended to the path.
-func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Response, error) {
-	var timeout time.Duration
-
-	// Get timeout from config
-	if c.config.Timeout == nil {
-		timeout = 30 * time.Second // Default timeout
-	} else {
+func (c *HTTPClient) requestConfig(options *RequestOptions) (time.Duration, *RetryConfig) {
+	timeout := 30 * time.Second
+	if options != nil && options.Timeout != nil {
+		timeout = *options.Timeout
+	} else if c.config.Timeout != nil {
 		timeout = *c.config.Timeout
 	}
+
+	var retry *RetryConfig
+	if options != nil && options.Retry != nil {
+		retry = options.Retry
+	} else {
+		retry = c.config.Retry
+	}
+
+	return timeout, retry
+}
+
+// Get makes a GET request to the given path. Base URL is prepended to the path.
+func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Response, error) {
+	timeout, retry := c.requestConfig(request.Options)
 
 	// Create deadline context if configured
 	deadlineCtx := ctx
@@ -116,7 +127,7 @@ func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Respons
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout, retry)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +138,7 @@ func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Respons
 
 // PostJSON makes a POST request with JSON body to the given path. Base URL is prepended to the path.
 func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*http.Response, error) {
-	var timeout time.Duration
-
-	// Get timeout from config
-	if c.config.Timeout == nil {
-		timeout = 30 * time.Second // Default timeout
-	} else {
-		timeout = *c.config.Timeout
-	}
+	timeout, retry := c.requestConfig(request.Options)
 
 	// Create deadline context if configured
 	deadlineCtx := ctx
@@ -172,7 +176,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*ht
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout, retry)
 	if err != nil {
 		return nil, err
 	}
@@ -183,14 +187,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*ht
 
 // PostForm makes a POST request with form body to the given path. Base URL is prepended to the path.
 func (c *HTTPClient) PostForm(ctx context.Context, request PostFormRequest) (*http.Response, error) {
-	var timeout time.Duration
-
-	// Get timeout from config
-	if c.config.Timeout == nil {
-		timeout = 30 * time.Second // Default timeout
-	} else {
-		timeout = *c.config.Timeout
-	}
+	timeout, retry := c.requestConfig(request.Options)
 
 	// Create deadline context if configured
 	deadlineCtx := ctx
@@ -224,7 +221,7 @@ func (c *HTTPClient) PostForm(ctx context.Context, request PostFormRequest) (*ht
 	}
 
 	// Send request with retry
-	resp, err := c.executeWithRetry(deadlineCtx, req, timeout)
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout, retry)
 	if err != nil {
 		return nil, err
 	}

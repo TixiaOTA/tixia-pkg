@@ -203,7 +203,7 @@ func (c *Client) GetPriceItinerary(ctx context.Context, req GetPriceItineraryReq
 }
 
 // SellJourneys sells the selected journeys
-func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*SellJourneysResponse, *PanoramaError) {
+func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest, options ...RequestOption) (*SellJourneysResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "SellJourneys")
 	defer span.End()
 
@@ -213,14 +213,12 @@ func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*Se
 		return nil, buildPanoramaError(InvalidRequest, err.Error())
 	}
 
-	c.httpClient.SetTimeout(sellJourneysTimeout)
-
 	headers := map[string]string{
 		"Action":    string(SellJourneys),
 		"Signature": req.Signature,
 	}
 
-	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(sellJourneysTimeout, options...))
 	if err != nil {
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
@@ -243,7 +241,7 @@ func (c *Client) SellJourneys(ctx context.Context, req SellJourneysRequest) (*Se
 }
 
 // UpdateContacts updates booker and contact persons for a booking session
-func (c *Client) UpdateContacts(ctx context.Context, req UpdateContactsRequest) (*UpdateContactsResponse, *PanoramaError) {
+func (c *Client) UpdateContacts(ctx context.Context, req UpdateContactsRequest, options ...RequestOption) (*UpdateContactsResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "UpdateContacts")
 	defer span.End()
 
@@ -253,14 +251,12 @@ func (c *Client) UpdateContacts(ctx context.Context, req UpdateContactsRequest) 
 		return nil, buildPanoramaError(InvalidRequest, err.Error())
 	}
 
-	c.httpClient.SetTimeout(updateContactsTimeout)
-
 	headers := map[string]string{
 		"Action":    string(UpdateContacts),
 		"Signature": req.Signature,
 	}
 
-	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(updateContactsTimeout, options...))
 	if err != nil {
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
@@ -283,7 +279,7 @@ func (c *Client) UpdateContacts(ctx context.Context, req UpdateContactsRequest) 
 }
 
 // UpdatePassengers updates passengers for a booking session
-func (c *Client) UpdatePassengers(ctx context.Context, req UpdatePassengersRequest) (*UpdatePassengersResponse, *PanoramaError) {
+func (c *Client) UpdatePassengers(ctx context.Context, req UpdatePassengersRequest, options ...RequestOption) (*UpdatePassengersResponse, *PanoramaError) {
 	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "UpdatePassengers")
 	defer span.End()
 
@@ -293,14 +289,12 @@ func (c *Client) UpdatePassengers(ctx context.Context, req UpdatePassengersReque
 		return nil, buildPanoramaError(InvalidRequest, err.Error())
 	}
 
-	c.httpClient.SetTimeout(updatePassengersTimeout)
-
 	headers := map[string]string{
 		"Action":    string(UpdatePassengers),
 		"Signature": req.Signature,
 	}
 
-	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers)
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(updatePassengersTimeout, options...))
 	if err != nil {
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
