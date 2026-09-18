@@ -7,6 +7,7 @@ A Go client library for interacting with the Panorama API, providing airline boo
 - **Authentication**: Sign in to the Panorama API using credentials
 - **Account Balance**: Retrieve account balance, credit limit, and point rewards
 - **Booking Management**: Retrieve booking details by order number
+- **Flight Search**: Search available flights by route and travel date
 - **Price Itinerary**: Get pricing for a selected itinerary
 - **Sell Journeys**: Sell selected journeys with the same request shape as price itinerary
 - **Booking Cancellation**: Cancel bookings with "booked" status to "void" status
@@ -27,6 +28,7 @@ providers/panorama/
 ├── helpers.go
 ├── models.go
 ├── models_get_balance.go
+├── models_search.go
 ├── models_get_price_itinerary.go
 ├── models_sell_journeys.go
 ├── usecase.go
@@ -219,6 +221,39 @@ type GetBookingResponse struct {
     } `json:"result"`
 }
 ```
+
+### Search
+
+Searches available flights by route and travel date. The signature is sent in the request header, not in the JSON body.
+
+```go
+func (c *Client) Search(ctx context.Context, req SearchRequest, options ...RequestOption) (*SearchResponse, *PanoramaError)
+```
+
+**Request:**
+
+```go
+type SearchRequest struct {
+    Signature    string          `json:"signature,omitempty"`
+    JourneyList  []SearchJourney `json:"journey_list"`
+    Adult        int             `json:"adult"`
+    Child        int             `json:"child"`
+    Infant       int             `json:"infant"`
+    CabinClass   CabinClass      `json:"cabin_class"`
+    CarrierCodes []string        `json:"carrier_codes"`
+    IsComboPrice bool            `json:"is_combo_price"`
+    Provider     string          `json:"provider"`
+    PromoCodes   []string        `json:"promo_codes"`
+}
+```
+
+`CabinClass` accepts `CabinClassEconomy` (`Y`), `CabinClassPremiumEconomy` (`W`), `CabinClassBusiness` (`C`), or `CabinClassFirst` (`F`).
+
+**Response:**
+
+`SearchResponse.Result.Response` is a typed `SearchResponseData` containing `Schedules` and `Recommendations`. Nested journeys, segments, legs, fares, service charges, and recommendation references are modeled by the corresponding `Search*` types.
+
+**Timeout:** 120 seconds
 
 ### GetPriceItinerary
 

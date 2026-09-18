@@ -12,6 +12,7 @@ type PanoramaHeaderAction string
 
 const (
 	SignIn              PanoramaHeaderAction = "signin"
+	Search              PanoramaHeaderAction = "search"
 	GetBooking          PanoramaHeaderAction = "get_booking"
 	Cancel              PanoramaHeaderAction = "cancel"
 	GetPriceItinerary   PanoramaHeaderAction = "get_price_itinerary"
