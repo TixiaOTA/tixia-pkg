@@ -17,20 +17,21 @@ const (
 )
 
 const (
-	signInTimeout            = 10 * time.Second
-	getBalanceTimeout        = 10 * time.Second
-	getBookingTimeout        = 10 * time.Second
-	cancelTimeout            = 10 * time.Second
+	signInTimeout            = 30 * time.Second
+	searchTimeout            = 120 * time.Second
+	getBalanceTimeout        = 30 * time.Second
+	getBookingTimeout        = 30 * time.Second
+	cancelTimeout            = 30 * time.Second
 	getPriceItineraryTimeout = 30 * time.Second
 	sellJourneysTimeout      = 30 * time.Second
-	updateContactsTimeout    = 10 * time.Second
-	updatePassengersTimeout  = 10 * time.Second
+	updateContactsTimeout    = 30 * time.Second
+	updatePassengersTimeout  = 30 * time.Second
 	commitBookingTimeout     = 30 * time.Second
 	issuedTimeout            = 30 * time.Second
 
-	getFFAvailabilityTimeout   = 10 * time.Second
-	getSSRAvailabilityTimeout  = 10 * time.Second
-	getSeatAvailabilityTimeout = 10 * time.Second
+	getFFAvailabilityTimeout   = 30 * time.Second
+	getSSRAvailabilityTimeout  = 30 * time.Second
+	getSeatAvailabilityTimeout = 30 * time.Second
 	sellSSRsTimeout            = 30 * time.Second
 	assignSeatsTimeout         = 30 * time.Second
 )
@@ -155,6 +156,54 @@ func (c *Client) GetBooking(ctx context.Context, req GetBookingRequest) (*GetBoo
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// Search searches for available flights.
+func (c *Client) Search(ctx context.Context, req SearchRequest, options ...RequestOption) (*SearchResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "Search")
+	defer span.End()
+
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting Search request", zap.Any("request", sanitizedReq))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	payload := req
+	payload.Signature = ""
+	if payload.CarrierCodes == nil {
+		payload.CarrierCodes = []string{}
+	}
+	if payload.PromoCodes == nil {
+		payload.PromoCodes = []string{}
+	}
+
+	headers := map[string]string{
+		"Action":    string(Search),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, payload, bookingAirlinePath, &headers, buildRequestOptions(searchTimeout, options...))
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp SearchResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if panoramaErr, ok := err.(*PanoramaError); ok {
+			return nil, panoramaErr
 		}
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
