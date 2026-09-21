@@ -30,7 +30,7 @@ type GetBalanceResponse struct {
 type BalanceResponse struct {
 	Balance                     float64 `json:"balance"`
 	CustomerParentBalance       int     `json:"customer_parent_balance"`
-	CreditLimit                 int     `json:"credit_limit"`
+	CreditLimit                 float64 `json:"credit_limit"`
 	CustomerParentCurrencyCode  string  `json:"customer_parent_currency_code"`
 	CurrencyCode                string  `json:"currency_code"`
 	IsShowBalance               bool    `json:"is_show_balance"`
