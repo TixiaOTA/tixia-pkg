@@ -18,6 +18,7 @@ const (
 	GetPriceItinerary   PanoramaHeaderAction = "get_price_itinerary"
 	SellJourneys        PanoramaHeaderAction = "sell_journeys"
 	GetBalance          PanoramaHeaderAction = "get_balance"
+	GetProviderList     PanoramaHeaderAction = "get_provider_list"
 	UpdateContacts      PanoramaHeaderAction = "update_contacts"
 	UpdatePassengers    PanoramaHeaderAction = "update_passengers"
 	CommitBooking       PanoramaHeaderAction = "commit_booking"

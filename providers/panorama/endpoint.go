@@ -14,12 +14,14 @@ const (
 	sessionPath        = "/session"
 	bookingAirlinePath = "/booking/airline"
 	accountPath        = "/account"
+	contentPath        = "/content"
 )
 
 const (
 	signInTimeout            = 30 * time.Second
 	searchTimeout            = 120 * time.Second
 	getBalanceTimeout        = 30 * time.Second
+	getProviderListTimeout   = 30 * time.Second
 	getBookingTimeout        = 30 * time.Second
 	cancelTimeout            = 30 * time.Second
 	getPriceItineraryTimeout = 30 * time.Second
@@ -112,6 +114,45 @@ func (c *Client) GetBalance(ctx context.Context, req GetBalanceRequest) (*GetBal
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetProviderList gets the providers and carriers for a provider type.
+func (c *Client) GetProviderList(ctx context.Context, req GetProviderListRequest, options ...RequestOption) (*GetProviderListResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetProviderList")
+	defer span.End()
+
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetProviderList request", zap.Any("request", sanitizedReq))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	headers := map[string]string{
+		"Action":    string(GetProviderList),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, contentPath, &headers, buildRequestOptions(getProviderListTimeout, options...))
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp GetProviderListResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if panoramaErr, ok := err.(*PanoramaError); ok {
+			return nil, panoramaErr
 		}
 		return nil, buildPanoramaError(InternalServerError, err.Error())
 	}
