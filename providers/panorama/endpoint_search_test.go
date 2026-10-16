@@ -149,6 +149,9 @@ func TestSearchResponse_Parse(t *testing.T) {
 								}],
 								"service_charge_summary": [{
 									"pax_type": "ADT",
+									"base_fare": 1400000,
+									"base_tax": 230388.25,
+									"total_tax": 460776.5,
 									"total_price": 1860776
 								}]
 							}]
@@ -184,6 +187,9 @@ func TestSearchResponse_Parse(t *testing.T) {
 	assert.Equal(t, FlexibleNumber(9), fare.AvailableCount)
 	assert.Equal(t, FlexibleString("30"), fare.FareDetails[0].Amount)
 	assert.Equal(t, 1400000.0, fare.ServiceCharges[0].Amount)
+	assert.Equal(t, 1400000.0, fare.ServiceChargeSummary[0].BaseFare)
+	assert.Equal(t, 230388.25, fare.ServiceChargeSummary[0].BaseTax)
+	assert.Equal(t, 460776.5, fare.ServiceChargeSummary[0].TotalTax)
 	assert.Equal(t, 1860776.0, fare.ServiceChargeSummary[0].TotalPrice)
 
 	require.Len(t, resp.Result.Response.Recommendations, 1)

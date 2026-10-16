@@ -235,6 +235,7 @@ type SearchServiceChargeSummary struct {
 	PaxType         string                `json:"pax_type"`
 	PaxCount        int                   `json:"pax_count"`
 	BaseFare        float64               `json:"base_fare"`
+	BaseTax         float64               `json:"base_tax"`
 	BaseAmount      float64               `json:"base_amount"`
 	BaseNta         float64               `json:"base_nta"`
 	BasePrice       float64               `json:"base_price"`
