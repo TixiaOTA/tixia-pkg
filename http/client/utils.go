@@ -22,17 +22,18 @@ func (c *HTTPClient) executeWithRetry(deadlineCtx context.Context, req *http.Req
 		timeoutCtx, timeoutCancel := context.WithTimeout(deadlineCtx, timeout)
 		req = req.Clone(timeoutCtx)
 		resp, err := http.DefaultClient.Do(req)
-		timeoutCancel()
 
 		if err == nil && resp != nil && resp.Body != nil {
 			bodyBytes, readErr := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if readErr != nil {
+				timeoutCancel()
 				return nil, fmt.Errorf("[HTTP Retry] Failed to read response body: %w", readErr)
 			}
 			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		}
 
+		timeoutCancel()
 		return resp, err
 	}
 

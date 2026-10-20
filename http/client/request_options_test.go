@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -80,5 +82,61 @@ func TestPostJSON_RequestRetryOverride(t *testing.T) {
 	}
 	if client.config.Retry.MaxRetries != 0 {
 		t.Fatalf("request retry override mutated client config: %d", client.config.Retry.MaxRetries)
+	}
+}
+
+func TestGet_NoRetriesBuffersStreamedResponse(t *testing.T) {
+	server := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("first "))
+		w.(http.Flusher).Flush()
+		time.Sleep(50 * time.Millisecond)
+		w.Write([]byte("second"))
+	})
+	defer server.Close()
+
+	timeout := time.Second
+	client := NewHTTPClient(HTTPConfig{
+		BaseURL: server.URL,
+		Timeout: &timeout,
+		Retry:   &RetryConfig{MaxRetries: 0},
+	})
+
+	resp, err := client.Get(context.Background(), GetRequest{Path: "/stream"})
+	if err != nil {
+		t.Fatalf("Get streamed response: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read buffered body: %v", err)
+	}
+	if string(body) != "first second" {
+		t.Fatalf("body = %q, want %q", body, "first second")
+	}
+}
+
+func TestGet_NoRetriesPreservesBodyReadError(t *testing.T) {
+	server := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "10")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("short"))
+	})
+	defer server.Close()
+
+	client := NewHTTPClient(HTTPConfig{
+		BaseURL: server.URL,
+		Retry:   &RetryConfig{MaxRetries: 0},
+	})
+	resp, err := client.Get(context.Background(), GetRequest{Path: "/short"})
+	if resp != nil {
+		resp.Body.Close()
+		t.Fatalf("response = %v, want nil on body read error", resp)
+	}
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("error = %v, want wrapped unexpected EOF", err)
 	}
 }
