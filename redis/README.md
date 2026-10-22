@@ -259,6 +259,26 @@ func (cm *CacheManager) Set(ctx context.Context, key string, value interface{}, 
 
 - `error`: Error if operation fails
 
+##### SetNX
+
+Sets a value only if the key does not already exist. This is an atomic operation and is safe to use for locks, one-time tokens, and replay protection.
+
+```go
+func (cm *CacheManager) SetNX(ctx context.Context, key string, value interface{}, opts *CacheOptions) (bool, error)
+```
+
+**Parameters:**
+
+- `ctx` (context.Context, required): Context
+- `key` (string, required): Cache key
+- `value` (interface{}, required): Value to cache (must be JSON serializable)
+- `opts` (*CacheOptions, optional): Cache options (TTL, prefix, compression)
+
+**Return Values:**
+
+- `bool`: `true` when this call created the key, `false` when it already existed
+- `error`: Error if operation fails
+
 ##### Get
 
 Gets a value from the cache.
