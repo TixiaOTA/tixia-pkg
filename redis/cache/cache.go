@@ -84,6 +84,41 @@ func (cm *CacheManager) Set(ctx context.Context, key string, value interface{}, 
 	return nil
 }
 
+// SetNX sets a value only if the key does not already exist. It returns true
+// when this call created the key and false when the key already existed.
+func (cm *CacheManager) SetNX(ctx context.Context, key string, value interface{}, opts *CacheOptions) (bool, error) {
+	if opts == nil {
+		opts = &CacheOptions{
+			TTL: cm.config.DefaultTTL,
+		}
+	}
+
+	if opts.TTL == 0 {
+		opts.TTL = cm.config.DefaultTTL
+	}
+
+	if opts.TTL > cm.config.MaxTTL {
+		opts.TTL = cm.config.MaxTTL
+	}
+
+	jsonValue, err := json.Marshal(value)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal value: %w", err)
+	}
+
+	cacheKey := cm.GenerateKey(opts.KeyPrefix, key)
+
+	created, err := cm.client.SetNX(ctx, cacheKey, jsonValue, opts.TTL).Result()
+	if err != nil {
+		cm.logger.Error("Failed to set cache value if not exists",
+			zap.String("key", cacheKey),
+			zap.Error(err))
+		return false, fmt.Errorf("failed to set cache value if not exists: %w", err)
+	}
+
+	return created, nil
+}
+
 func (cm *CacheManager) Get(ctx context.Context, key string, dest interface{}, opts *CacheOptions) (bool, error) {
 	if opts == nil {
 		opts = &CacheOptions{}
