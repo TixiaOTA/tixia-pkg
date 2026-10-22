@@ -309,6 +309,26 @@ func (c *HTTPClient) PostForm(ctx context.Context, request PostFormRequest) (*ht
 
 **Special Notes:** Content-Type header is set to "application/x-www-form-urlencoded". Request body can be re-read for retries.
 
+##### PostRaw
+
+Makes a POST request with a raw body to the given path.
+
+```go
+func (c *HTTPClient) PostRaw(ctx context.Context, request PostRawRequest) (*http.Response, error)
+```
+
+**Parameters:**
+
+- `ctx` (context.Context, required): Context for the request
+- `request` (PostRawRequest, required): POST raw request configuration
+
+**Return Values:**
+
+- `*http.Response`: HTTP response
+- `error`: Error if request fails
+
+**Special Notes:** The caller is responsible for setting `ContentType` (for example `multipart/form-data`). Request body can be re-read for retries.
+
 ## Error Handling
 
 The client handles errors gracefully:
@@ -393,6 +413,19 @@ type PostFormRequest struct {
     Path    string
     Body    url.Values
     Headers *map[string]string
+}
+```
+
+### PostRawRequest
+
+POST raw request configuration:
+
+```go
+type PostRawRequest struct {
+    Path        string
+    Body        []byte
+    ContentType string
+    Headers     *map[string]string
 }
 ```
 
