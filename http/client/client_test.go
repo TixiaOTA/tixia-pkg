@@ -626,6 +626,102 @@ func (suite *HTTPClientTestSuite) TestPostForm_WithTimeout() {
 }
 
 // =============================================================================
+// POST Raw Tests
+// =============================================================================
+
+func (suite *HTTPClientTestSuite) TestPostRaw_Success() {
+	requestBody := []byte(`{"raw": "body"}`)
+
+	suite.createTestServer(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal(http.MethodPost, r.Method)
+		suite.Equal("/raw", r.URL.Path)
+		suite.Equal("application/octet-stream", r.Header.Get("Content-Type"))
+
+		body, _ := io.ReadAll(r.Body)
+		suite.Equal(requestBody, body)
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"status": "created"}`))
+	})
+
+	suite.createClient(HTTPConfig{})
+
+	ctx := context.Background()
+	resp, err := suite.client.PostRaw(ctx, PostRawRequest{
+		Path:        "/raw",
+		Body:        requestBody,
+		ContentType: "application/octet-stream",
+	})
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.Equal(http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+}
+
+func (suite *HTTPClientTestSuite) TestPostRaw_WithCustomHeaders() {
+	suite.createTestServer(func(w http.ResponseWriter, r *http.Request) {
+		suite.Equal("Bearer token789", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	suite.createClient(HTTPConfig{})
+
+	headers := map[string]string{
+		"Authorization": "Bearer token789",
+	}
+
+	ctx := context.Background()
+	resp, err := suite.client.PostRaw(ctx, PostRawRequest{
+		Path:    "/raw",
+		Body:    []byte("body"),
+		Headers: &headers,
+	})
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	resp.Body.Close()
+}
+
+func (suite *HTTPClientTestSuite) TestPostRaw_BodyRereadingOnRetry() {
+	attemptCount := 0
+	receivedBodies := []string{}
+
+	suite.createTestServer(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		body, _ := io.ReadAll(r.Body)
+		receivedBodies = append(receivedBodies, string(body))
+
+		if attemptCount < 2 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	suite.createClient(HTTPConfig{
+		Retry: &RetryConfig{
+			MaxRetries:        2,
+			InitialBackoff:    10 * time.Millisecond,
+			MaxBackoff:        100 * time.Millisecond,
+			BackoffMultiplier: 2.0,
+		},
+	})
+
+	ctx := context.Background()
+	resp, err := suite.client.PostRaw(ctx, PostRawRequest{
+		Path: "/raw",
+		Body: []byte("retry body"),
+	})
+
+	suite.NoError(err)
+	suite.NotNil(resp)
+	suite.Equal(2, attemptCount)
+	suite.Equal(receivedBodies[0], receivedBodies[1])
+	resp.Body.Close()
+}
+
+// =============================================================================
 // Retry Logic & Backoff Tests
 // =============================================================================
 

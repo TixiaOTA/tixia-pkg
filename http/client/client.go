@@ -136,6 +136,51 @@ func (c *HTTPClient) Get(ctx context.Context, request GetRequest) (*http.Respons
 	return resp, nil
 }
 
+// PostRaw makes a POST request with a raw body to the given path. Base URL is prepended to the path.
+// The caller is responsible for setting an appropriate ContentType.
+func (c *HTTPClient) PostRaw(ctx context.Context, request PostRawRequest) (*http.Response, error) {
+	timeout, retry := c.requestConfig(request.Options)
+
+	// Create deadline context if configured
+	deadlineCtx := ctx
+	if c.config.Deadline != nil {
+		var cancel context.CancelFunc
+		deadlineCtx, cancel = context.WithTimeout(ctx, *c.config.Deadline)
+		defer cancel()
+	}
+
+	bodyReader := bytes.NewReader(request.Body)
+	req, err := http.NewRequestWithContext(deadlineCtx, http.MethodPost, c.config.BaseURL+request.Path, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set GetBody to allow body to be re-read for retries
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(request.Body)), nil
+	}
+
+	if request.ContentType != "" {
+		req.Header.Set("Content-Type", request.ContentType)
+	}
+
+	// Add additional headers
+	if request.Headers != nil {
+		for key, value := range *request.Headers {
+			req.Header.Set(key, value)
+		}
+	}
+
+	// Send request with retry
+	resp, err := c.executeWithRetry(deadlineCtx, req, timeout, retry)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return response
+	return resp, nil
+}
+
 // PostJSON makes a POST request with JSON body to the given path. Base URL is prepended to the path.
 func (c *HTTPClient) PostJSON(ctx context.Context, request PostJSONRequest) (*http.Response, error) {
 	timeout, retry := c.requestConfig(request.Options)

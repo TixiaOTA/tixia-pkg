@@ -33,3 +33,12 @@ type PostFormRequest struct {
 	Headers *map[string]string // Optional additional headers
 	Options *RequestOptions
 }
+
+// PostRawRequest is the request for the PostRaw method
+type PostRawRequest struct {
+	Path        string
+	Body        []byte
+	ContentType string // Optional content type header
+	Headers     *map[string]string
+	Options     *RequestOptions
+}
