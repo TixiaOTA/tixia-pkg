@@ -55,12 +55,12 @@ type BasicResult struct {
 	ErrorMsg  string    `json:"error_msg"`
 }
 
-type SignInResponse struct {
+type signInResponse struct {
 	JSONRPC string       `json:"jsonrpc"`
-	Result  SignInResult `json:"result"`
+	Result  signInResult `json:"result"`
 }
 
-type SignInResult struct {
+type signInResult struct {
 	BasicResult
 	Response struct {
 		Signature string `json:"signature"`
