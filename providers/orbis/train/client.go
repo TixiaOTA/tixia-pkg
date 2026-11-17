@@ -2,10 +2,8 @@ package train
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -13,12 +11,14 @@ import (
 )
 
 const (
-	sessionPath      = "/session"
+	sessionPath = "/session"
 	bookingTrainPath = "/booking/train"
+	signInTimeout = 30 * time.Second
+	searchTimeout = 120 * time.Second
 )
 
 type Config struct {
-	BaseURL     string
+	BaseURL string
 	Credentials Credentials
 	RetryConfig *client.RetryConfig
 }
@@ -44,70 +44,62 @@ func New(config Config) (*Client, error) {
 	}, nil
 }
 
-// SignIn creates a provider session. Call once before each independent Train flow.
+// SignIn opens a fresh Orbis Train session.
 func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *ProviderError) {
 	if c == nil || c.httpClient == nil {
 		return nil, newProviderError(ErrorInternal, "train client is not initialized")
 	}
-	var response SignInResponse
-	if err := c.call(ctx, sessionPath, "signin", "", c.credentials, 30*time.Second, &response); err != nil {
+	headers := map[string]string{"Action": "signin"}
+	timeout := signInTimeout
+	resp, err := c.sendRequest(ctx, c.credentials, sessionPath, &headers, client.RequestOptions{Timeout: &timeout})
+	if err != nil {
+		return nil, newProviderError(ErrorInternal, err.Error())
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, newProviderError(ErrorInternal, err.Error())
+	}
+	var parsed SignInResponse
+	if err := parseResponseBody(body, &parsed); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(response.Result.Response.Signature) == "" {
+	if strings.TrimSpace(parsed.Result.Response.Signature) == "" {
 		return nil, newProviderError(ErrorInternal, "Orbis signin returned empty signature")
 	}
-	return &response, nil
+	return &parsed, nil
 }
 
-// Search uses a session signature obtained from SignIn. The signature is only
-// sent in the header, never in the JSON request body.
+// Search starts a fresh session before every search, matching the Flight usecase
+// pattern. The returned signature is internal-only and can be cached by backend
+// for subsequent steps of the same booking flow.
 func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError) {
 	if err := request.Validate(); err != nil {
 		return nil, newProviderError(ErrorInvalidInput, err.Error())
 	}
-	if c == nil || c.httpClient == nil {
-		return nil, newProviderError(ErrorInternal, "train client is not initialized")
-	}
-	var response SearchResponse
-	if err := c.call(ctx, bookingTrainPath, "search", request.Signature, request, 120*time.Second, &response); err != nil {
+	signin, err := c.SignIn(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return &response, nil
-}
-
-// Callers start each flow with SignIn, then reuse its signature for the
-// subsequent provider calls belonging to that flow.
-func (c *Client) call(ctx context.Context, path, action, signature string, body any, timeout time.Duration, dest any) *ProviderError {
-	headers := map[string]string{"Action": action, "Accept": "application/json"}
-	if signature != "" {
-		headers["Signature"] = signature
+	signature := signin.Result.Response.Signature
+	headers := map[string]string{
+		"Action": "search",
+		"Signature": signature,
 	}
-	resp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
-		Path: path, Body: body, Headers: &headers,
-		Options: &client.RequestOptions{Timeout: &timeout},
-	})
-	if err != nil {
-		return newProviderError(ErrorInternal, err.Error())
+	timeout := searchTimeout
+	resp, sendErr := c.sendRequest(ctx, request, bookingTrainPath, &headers, client.RequestOptions{Timeout: &timeout})
+	if sendErr != nil {
+		return nil, newProviderError(ErrorInternal, sendErr.Error())
 	}
 	defer resp.Body.Close()
-	payload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return newProviderError(ErrorInternal, err.Error())
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return nil, newProviderError(ErrorInternal, readErr.Error())
 	}
-	if resp.StatusCode != http.StatusOK {
-		return newProviderError(ErrorInternal, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(payload)))
+	var result SearchResponse
+	if decodeErr := parseResponseBody(body, &result); decodeErr != nil {
+		return nil, decodeErr
 	}
-	var envelope struct {
-		Result BasicResult `json:"result"`
-	}
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return newProviderError(ErrorInternal, err.Error())
-	}
-	if envelope.Result.ErrorCode != ErrorSuccess || envelope.Result.ErrorMsg != "" {
-		return newProviderError(envelope.Result.ErrorCode, envelope.Result.ErrorMsg)
-	}
-	if err := json.Unmarshal(payload, dest); err != nil {
-		return newProviderError(ErrorInternal, err.Error())
-	}
-	return nil
+	result.Signature = signature
+	return &result, nil
 }
