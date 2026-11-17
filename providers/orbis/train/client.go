@@ -10,93 +10,104 @@ import (
 	"time"
 
 	"github.com/TixiaOTA/tixia-pkg/http/client"
-	"github.com/TixiaOTA/tixia-pkg/providers/panorama"
 )
 
-const bookingTrainPath = "/booking/train"
+const (
+	sessionPath      = "/session"
+	bookingTrainPath = "/booking/train"
+)
 
 type Config struct {
 	BaseURL     string
+	Credentials Credentials
 	RetryConfig *client.RetryConfig
 }
 
 type Client struct {
 	httpClient *client.HTTPClient
+	credentials Credentials
 }
 
 func New(config Config) (*Client, error) {
 	if strings.TrimSpace(config.BaseURL) == "" {
 		return nil, fmt.Errorf("base URL is required")
 	}
-	httpConfig := client.HTTPConfig{
-		BaseURL: strings.TrimRight(config.BaseURL, "/"),
-		Retry:   config.RetryConfig,
+	if err := config.Credentials.Validate(); err != nil {
+		return nil, err
 	}
-	return &Client{httpClient: client.NewHTTPClient(httpConfig)}, nil
+	return &Client{
+		httpClient: client.NewHTTPClient(client.HTTPConfig{
+			BaseURL: strings.TrimRight(config.BaseURL, "/"),
+			Retry: config.RetryConfig,
+		}),
+		credentials: config.Credentials,
+	}, nil
 }
 
-// Search uses the signature from panorama.Client.SignIn.
-// Call SignIn before each Train operation, just as in the Flight flow.
-func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *panorama.PanoramaError) {
+// SignIn creates a provider session. Call once before each independent Train flow.
+func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *ProviderError) {
+	if c == nil || c.httpClient == nil {
+		return nil, newProviderError(ErrorInternal, "train client is not initialized")
+	}
+	var response SignInResponse
+	if err := c.call(ctx, sessionPath, "signin", "", c.credentials, 30*time.Second, &response); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(response.Result.Response.Signature) == "" {
+		return nil, newProviderError(ErrorInternal, "Orbis signin returned empty signature")
+	}
+	return &response, nil
+}
+
+// Search uses a session signature obtained from SignIn. The signature is only
+// sent in the header, never in the JSON request body.
+func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError) {
 	if err := request.Validate(); err != nil {
-		return nil, providerError(panorama.InvalidRequest, err.Error())
+		return nil, newProviderError(ErrorInvalidInput, err.Error())
 	}
 	if c == nil || c.httpClient == nil {
-		return nil, providerError(panorama.InternalServerError, "train client is not initialized")
+		return nil, newProviderError(ErrorInternal, "train client is not initialized")
 	}
+	var response SearchResponse
+	if err := c.call(ctx, bookingTrainPath, "search", request.Signature, request, 120*time.Second, &response); err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
 
-	headers := map[string]string{
-		"Action":    "search",
-		"Signature": request.Signature,
-		"Accept":    "application/json",
+// Callers start each flow with SignIn, then reuse its signature for the
+// subsequent provider calls belonging to that flow.
+func (c *Client) call(ctx context.Context, path, action, signature string, body any, timeout time.Duration, dest any) *ProviderError {
+	headers := map[string]string{"Action": action, "Accept": "application/json"}
+	if signature != "" {
+		headers["Signature"] = signature
 	}
-	timeout := 120 * time.Second
 	resp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
-		Path:    bookingTrainPath,
-		Body:    request,
-		Headers: &headers,
+		Path: path, Body: body, Headers: &headers,
 		Options: &client.RequestOptions{Timeout: &timeout},
 	})
 	if err != nil {
-		return nil, providerError(panorama.InternalServerError, err.Error())
+		return newProviderError(ErrorInternal, err.Error())
 	}
 	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
+	payload, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, providerError(panorama.InternalServerError, err.Error())
+		return newProviderError(ErrorInternal, err.Error())
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, providerError(panorama.InternalServerError, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body)))
+		return newProviderError(ErrorInternal, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(payload)))
 	}
-
-	// Orbis error payloads may contain response as a string, rather than an object.
 	var envelope struct {
-		Result struct {
-			ErrorCode panorama.PanoramaErrorCode `json:"error_code"`
-			ErrorMsg  string                    `json:"error_msg"`
-		} `json:"result"`
+		Result BasicResult `json:"result"`
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, providerError(panorama.InternalServerError, err.Error())
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return newProviderError(ErrorInternal, err.Error())
 	}
-	if envelope.Result.ErrorCode != panorama.Success || envelope.Result.ErrorMsg != "" {
-		return nil, providerError(envelope.Result.ErrorCode, envelope.Result.ErrorMsg)
+	if envelope.Result.ErrorCode != ErrorSuccess || envelope.Result.ErrorMsg != "" {
+		return newProviderError(envelope.Result.ErrorCode, envelope.Result.ErrorMsg)
 	}
-	var result SearchResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, providerError(panorama.InternalServerError, err.Error())
+	if err := json.Unmarshal(payload, dest); err != nil {
+		return newProviderError(ErrorInternal, err.Error())
 	}
-	return &result, nil
-}
-
-func providerError(code panorama.PanoramaErrorCode, message string) *panorama.PanoramaError {
-	return &panorama.PanoramaError{
-		Result: panorama.PanoramaErrorResult{
-			BasicPanoramaResult: panorama.BasicPanoramaResult{
-				ErrorCode: code,
-				ErrorMsg:  message,
-			},
-		},
-	}
+	return nil
 }
