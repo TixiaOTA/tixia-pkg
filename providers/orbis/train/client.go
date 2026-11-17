@@ -11,44 +11,48 @@ import (
 )
 
 const (
-	sessionPath = "/session"
+	sessionPath      = "/session"
 	bookingTrainPath = "/booking/train"
-	signInTimeout = 30 * time.Second
-	searchTimeout = 120 * time.Second
+	signInTimeout    = 30 * time.Second
+	searchTimeout    = 120 * time.Second
 )
 
 type Config struct {
-	BaseURL string
+	BaseURL     string
 	Credentials Credentials
 	RetryConfig *client.RetryConfig
 }
 
-type Client struct {
-	httpClient *client.HTTPClient
+// Client exposes Train provider operations without exposing session management.
+type Client interface {
+	Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError)
+}
+
+type clientImpl struct {
+	httpClient  *client.HTTPClient
 	credentials Credentials
 }
 
-func New(config Config) (*Client, error) {
+var _ Client = (*clientImpl)(nil)
+
+func New(config Config) (Client, error) {
 	if strings.TrimSpace(config.BaseURL) == "" {
 		return nil, fmt.Errorf("base URL is required")
 	}
 	if err := config.Credentials.Validate(); err != nil {
 		return nil, err
 	}
-	return &Client{
+	return &clientImpl{
 		httpClient: client.NewHTTPClient(client.HTTPConfig{
 			BaseURL: strings.TrimRight(config.BaseURL, "/"),
-			Retry: config.RetryConfig,
+			Retry:   config.RetryConfig,
 		}),
 		credentials: config.Credentials,
 	}, nil
 }
 
-// SignIn opens a fresh Orbis Train session.
-func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *ProviderError) {
-	if c == nil || c.httpClient == nil {
-		return nil, newProviderError(ErrorInternal, "train client is not initialized")
-	}
+// signIn stays internal to the Train package.
+func (c *clientImpl) signIn(ctx context.Context) (*signInResponse, *ProviderError) {
 	headers := map[string]string{"Action": "signin"}
 	timeout := signInTimeout
 	resp, err := c.sendRequest(ctx, c.credentials, sessionPath, &headers, client.RequestOptions{Timeout: &timeout})
@@ -56,11 +60,12 @@ func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *ProviderError) {
 		return nil, newProviderError(ErrorInternal, err.Error())
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, newProviderError(ErrorInternal, err.Error())
 	}
-	var parsed SignInResponse
+	var parsed signInResponse
 	if err := parseResponseBody(body, &parsed); err != nil {
 		return nil, err
 	}
@@ -70,20 +75,19 @@ func (c *Client) SignIn(ctx context.Context) (*SignInResponse, *ProviderError) {
 	return &parsed, nil
 }
 
-// Search starts a fresh session before every search, matching the Flight usecase
-// pattern. The returned signature is internal-only and can be cached by backend
-// for subsequent steps of the same booking flow.
-func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError) {
+// Search signs in before every new search and keeps its signature in the
+// internal response field for the backend to persist for the booking flow.
+func (c *clientImpl) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError) {
 	if err := request.Validate(); err != nil {
 		return nil, newProviderError(ErrorInvalidInput, err.Error())
 	}
-	signin, err := c.SignIn(ctx)
+	signin, err := c.signIn(ctx)
 	if err != nil {
 		return nil, err
 	}
 	signature := signin.Result.Response.Signature
 	headers := map[string]string{
-		"Action": "search",
+		"Action":    "search",
 		"Signature": signature,
 	}
 	timeout := searchTimeout
@@ -92,6 +96,7 @@ func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResp
 		return nil, newProviderError(ErrorInternal, sendErr.Error())
 	}
 	defer resp.Body.Close()
+
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
 		return nil, newProviderError(ErrorInternal, readErr.Error())
