@@ -16,7 +16,7 @@ import (
 const bookingTrainPath = "/booking/train"
 
 type Config struct {
-	BaseURL string
+	BaseURL     string
 	RetryConfig *client.RetryConfig
 }
 
@@ -30,27 +30,30 @@ func New(config Config) (*Client, error) {
 	}
 	httpConfig := client.HTTPConfig{
 		BaseURL: strings.TrimRight(config.BaseURL, "/"),
-		Retry: config.RetryConfig,
+		Retry:   config.RetryConfig,
 	}
 	return &Client{httpClient: client.NewHTTPClient(httpConfig)}, nil
 }
 
-// Search calls Orbis Train Search using a signature obtained from the existing
-// panorama.Client.SignIn method. SignIn is intentionally not duplicated here.
+// Search uses the signature from panorama.Client.SignIn.
+// Call SignIn before each Train operation, just as in the Flight flow.
 func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResponse, *panorama.PanoramaError) {
 	if err := request.Validate(); err != nil {
 		return nil, providerError(panorama.InvalidRequest, err.Error())
 	}
+	if c == nil || c.httpClient == nil {
+		return nil, providerError(panorama.InternalServerError, "train client is not initialized")
+	}
 
 	headers := map[string]string{
-		"Action": "search",
+		"Action":    "search",
 		"Signature": request.Signature,
-		"Accept": "application/json",
+		"Accept":    "application/json",
 	}
 	timeout := 120 * time.Second
 	resp, err := c.httpClient.PostJSON(ctx, client.PostJSONRequest{
-		Path: bookingTrainPath,
-		Body: request,
+		Path:    bookingTrainPath,
+		Body:    request,
 		Headers: &headers,
 		Options: &client.RequestOptions{Timeout: &timeout},
 	})
@@ -67,12 +70,11 @@ func (c *Client) Search(ctx context.Context, request SearchRequest) (*SearchResp
 		return nil, providerError(panorama.InternalServerError, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body)))
 	}
 
-	// The Orbis success payload uses response as an object. Error payloads
-	// sometimes use response as a string, so decode the envelope first.
+	// Orbis error payloads may contain response as a string, rather than an object.
 	var envelope struct {
 		Result struct {
 			ErrorCode panorama.PanoramaErrorCode `json:"error_code"`
-			ErrorMsg string `json:"error_msg"`
+			ErrorMsg  string                    `json:"error_msg"`
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -93,9 +95,8 @@ func providerError(code panorama.PanoramaErrorCode, message string) *panorama.Pa
 		Result: panorama.PanoramaErrorResult{
 			BasicPanoramaResult: panorama.BasicPanoramaResult{
 				ErrorCode: code,
-				ErrorMsg: message,
+				ErrorMsg:  message,
 			},
 		},
 	}
 }
-
