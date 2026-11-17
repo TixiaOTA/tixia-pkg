@@ -4,21 +4,19 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 )
 
 const (
-	ProviderKAI  = "kai"
+	ProviderKAI = "kai"
 	DirectionOW = "OW"
 	DirectionRT = "RT"
 )
 
-
-// Credentials are used by the Orbis /session signin operation.
+// Credentials are used only for the Orbis /session request.
 type Credentials struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
-	APIKey   string `json:"api_key"`
+	User     string `json:"user" log:"redact"`
+	Password string `json:"password" log:"redact"`
+	APIKey   string `json:"api_key" log:"redact"`
 }
 
 func (c Credentials) Validate() error {
@@ -28,13 +26,12 @@ func (c Credentials) Validate() error {
 	return nil
 }
 
-
 type ErrorCode int
 
 const (
-	ErrorSuccess       ErrorCode = 0
-	ErrorInvalidInput  ErrorCode = 400
-	ErrorInternal      ErrorCode = 500
+	ErrorSuccess      ErrorCode = 0
+	ErrorInvalidInput ErrorCode = 400
+	ErrorInternal     ErrorCode = 500
 )
 
 type ProviderError struct {
@@ -70,10 +67,9 @@ type SignInResult struct {
 	} `json:"response"`
 }
 
-// SearchRequest is sent to Orbis /booking/train with Action: search.
-// Signature is sent only as an HTTP header.
+// SearchRequest contains provider search parameters. The client obtains
+// a fresh signature internally by calling SignIn before Search.
 type SearchRequest struct {
-	Signature   string          `json:"-"`
 	JourneyList []SearchJourney `json:"journey_list"`
 	Direction   string          `json:"direction"`
 	Adult       int             `json:"adult"`
@@ -88,9 +84,6 @@ type SearchJourney struct {
 }
 
 func (r *SearchRequest) Validate() error {
-	if strings.TrimSpace(r.Signature) == "" {
-		return fmt.Errorf("signature is required")
-	}
 	if r.Provider != ProviderKAI {
 		return fmt.Errorf("provider must be %q", ProviderKAI)
 	}
@@ -101,7 +94,7 @@ func (r *SearchRequest) Validate() error {
 		return fmt.Errorf("infant cannot be negative")
 	}
 
-	expectedJourneys := 0
+	var expectedJourneys int
 	switch r.Direction {
 	case DirectionOW:
 		expectedJourneys = 1
@@ -141,6 +134,9 @@ func (r *SearchRequest) Validate() error {
 type SearchResponse struct {
 	JSONRPC string       `json:"jsonrpc"`
 	Result  SearchResult `json:"result"`
+	// Signature is for backend session storage and future KAI booking operations.
+	// It must not be serialized into frontend responses.
+	Signature string `json:"-"`
 }
 
 type SearchResult struct {
@@ -158,21 +154,21 @@ type Schedule struct {
 }
 
 type Journey struct {
-	JourneyCode     string `json:"journey_code"`
-	Origin          string `json:"origin"`
-	DepartureDate   string `json:"departure_date"`
-	Destination     string `json:"destination"`
-	ArrivalDate     string `json:"arrival_date"`
-	ElapsedTime     string `json:"elapsed_time"`
-	Provider        string `json:"provider"`
-	Sequence        int    `json:"sequence"`
-	CabinClass      string `json:"cabin_class"`
-	ClassOfService  string `json:"class_of_service"`
-	AvailableCount  int    `json:"available_count"`
-	CarrierCode     string `json:"carrier_code"`
-	CarrierName     string `json:"carrier_name"`
-	CarrierNumber   string `json:"carrier_number"`
-	Fares           []Fare `json:"fares"`
+	JourneyCode    string `json:"journey_code"`
+	Origin         string `json:"origin"`
+	DepartureDate  string `json:"departure_date"`
+	Destination    string `json:"destination"`
+	ArrivalDate    string `json:"arrival_date"`
+	ElapsedTime    string `json:"elapsed_time"`
+	Provider       string `json:"provider"`
+	Sequence       int    `json:"sequence"`
+	CabinClass     string `json:"cabin_class"`
+	ClassOfService string `json:"class_of_service"`
+	AvailableCount int    `json:"available_count"`
+	CarrierCode    string `json:"carrier_code"`
+	CarrierName    string `json:"carrier_name"`
+	CarrierNumber  string `json:"carrier_number"`
+	Fares          []Fare `json:"fares"`
 }
 
 type Fare struct {
