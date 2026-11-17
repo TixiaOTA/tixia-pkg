@@ -10,53 +10,62 @@ import (
 
 	"github.com/TixiaOTA/tixia-pkg/http/client"
 	otelpkg "github.com/TixiaOTA/tixia-pkg/otel"
-	"go.uber.org/zap"
-	"time"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-// sendRequest mirrors the existing Panorama HTTP helper without coupling the
-// Train package to Panorama types.
+// sendRequest follows the Panorama HTTP helper pattern. The caller handles
+// lifecycle logging so successful provider calls do not produce duplicate logs.
 func (c *clientImpl) sendRequest(ctx context.Context, req any, path string, extra *map[string]string, options ...client.RequestOptions) (*http.Response, error) {
-	ctx, span, spanID := otelpkg.StartSpanWithID(ctx, "provider", "orbis/train", "sendRequest")
+	ctx, span, _ := otelpkg.StartSpanWithID(ctx, "provider", "orbis/train", "sendRequest")
 	defer span.End()
-	started := time.Now()
-	headers := map[string]string{"Content-Type": "application/json", "Accept": "application/json"}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
 	if extra != nil {
 		maps.Copy(headers, *extra)
 	}
+	span.SetAttributes(
+		attribute.String("provider.action", headers["Action"]),
+		attribute.String("http.route", path),
+	)
+
 	post := client.PostJSONRequest{Path: path, Body: req, Headers: &headers}
 	if len(options) > 0 {
 		post.Options = &options[0]
 	}
-	c.logger.WithTrace(ctx, spanID).Info("Orbis train HTTP request started",
-		zap.String("path", path),
-		zap.String("action", headers["Action"]),
-	)
 	resp, err := c.httpClient.PostJSON(ctx, post)
 	if err != nil {
-		c.logger.WithTrace(ctx, spanID).Error("Orbis train HTTP request failed",
-			zap.String("path", path), zap.String("action", headers["Action"]),
-			zap.Int64("duration_ms", time.Since(started).Milliseconds()))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "provider HTTP request failed")
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		c.logger.WithTrace(ctx, spanID).Error("Orbis train HTTP non-200 response",
-			zap.String("path", path), zap.String("action", headers["Action"]),
-			zap.Int("http_status", resp.StatusCode),
-			zap.Int64("duration_ms", time.Since(started).Milliseconds()))
-		return nil, fmt.Errorf("orbis train HTTP %d: %s", resp.StatusCode, string(body))
+		// Do not include the raw body: provider errors may contain sensitive data.
+		err := fmt.Errorf("orbis train HTTP status %d", resp.StatusCode)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "provider returned non-200 status")
+		return nil, err
 	}
-	c.logger.WithTrace(ctx, spanID).Info("Orbis train HTTP request completed",
-		zap.String("path", path), zap.String("action", headers["Action"]),
-		zap.Int("http_status", resp.StatusCode),
-		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return resp, nil
 }
 
+// decodeResponse reads and decodes the provider response for both SignIn and
+// Search. It owns closing the response body.
+func decodeResponse(resp *http.Response, destination any) *ProviderError {
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return newProviderError(ErrorInternal, fmt.Sprintf("read Orbis response: %v", err))
+	}
+	return parseResponseBody(body, destination)
+}
+
 func parseResponseBody(body []byte, destination any) *ProviderError {
-	// Provider errors may use response: "" instead of an object.
+	// Provider errors may use response: "" rather than an object.
 	var status struct {
 		Result BasicResult `json:"result"`
 	}
