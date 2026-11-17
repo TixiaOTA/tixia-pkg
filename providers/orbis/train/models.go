@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TixiaOTA/tixia-pkg/providers/panorama"
 )
 
 const (
@@ -13,6 +12,63 @@ const (
 	DirectionOW = "OW"
 	DirectionRT = "RT"
 )
+
+
+// Credentials are used by the Orbis /session signin operation.
+type Credentials struct {
+	User     string `json:"user"`
+	Password string `json:"password"`
+	APIKey   string `json:"api_key"`
+}
+
+func (c Credentials) Validate() error {
+	if strings.TrimSpace(c.User) == "" || strings.TrimSpace(c.Password) == "" || strings.TrimSpace(c.APIKey) == "" {
+		return fmt.Errorf("orbis user, password, and api_key are required")
+	}
+	return nil
+}
+
+
+type ErrorCode int
+
+const (
+	ErrorSuccess       ErrorCode = 0
+	ErrorInvalidInput  ErrorCode = 400
+	ErrorInternal      ErrorCode = 500
+)
+
+type ProviderError struct {
+	Code    ErrorCode
+	Message string
+}
+
+func (e *ProviderError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("Orbis train error (code %d): %s", e.Code, e.Message)
+}
+
+func newProviderError(code ErrorCode, message string) *ProviderError {
+	return &ProviderError{Code: code, Message: message}
+}
+
+type BasicResult struct {
+	ErrorCode ErrorCode `json:"error_code"`
+	ErrorMsg  string    `json:"error_msg"`
+}
+
+type SignInResponse struct {
+	JSONRPC string       `json:"jsonrpc"`
+	Result  SignInResult `json:"result"`
+}
+
+type SignInResult struct {
+	BasicResult
+	Response struct {
+		Signature string `json:"signature"`
+	} `json:"response"`
+}
 
 // SearchRequest is sent to Orbis /booking/train with Action: search.
 // Signature is sent only as an HTTP header.
@@ -88,7 +144,7 @@ type SearchResponse struct {
 }
 
 type SearchResult struct {
-	panorama.BasicPanoramaResult
+	BasicResult
 	Response SearchData `json:"response"`
 }
 
