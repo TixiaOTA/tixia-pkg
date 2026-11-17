@@ -1,0 +1,155 @@
+package train
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/TixiaOTA/tixia-pkg/providers/panorama"
+)
+
+const (
+	ProviderKAI  = "kai"
+	DirectionOW = "OW"
+	DirectionRT = "RT"
+)
+
+// SearchRequest is sent to Orbis /booking/train with Action: search.
+// Signature is sent only as an HTTP header.
+type SearchRequest struct {
+	Signature   string          `json:"-"`
+	JourneyList []SearchJourney `json:"journey_list"`
+	Direction   string          `json:"direction"`
+	Adult       int             `json:"adult"`
+	Infant      int             `json:"infant"`
+	Provider    string          `json:"provider"`
+}
+
+type SearchJourney struct {
+	Origin        string `json:"origin"`
+	Destination   string `json:"destination"`
+	DepartureDate string `json:"departure_date"`
+}
+
+func (r *SearchRequest) Validate() error {
+	if strings.TrimSpace(r.Signature) == "" {
+		return fmt.Errorf("signature is required")
+	}
+	if r.Provider != ProviderKAI {
+		return fmt.Errorf("provider must be %q", ProviderKAI)
+	}
+	if r.Adult < 1 {
+		return fmt.Errorf("adult must be at least 1")
+	}
+	if r.Infant < 0 {
+		return fmt.Errorf("infant cannot be negative")
+	}
+
+	expectedJourneys := 0
+	switch r.Direction {
+	case DirectionOW:
+		expectedJourneys = 1
+	case DirectionRT:
+		expectedJourneys = 2
+	default:
+		return fmt.Errorf("direction must be OW or RT")
+	}
+	if len(r.JourneyList) != expectedJourneys {
+		return fmt.Errorf("%s search requires %d journey(s)", r.Direction, expectedJourneys)
+	}
+
+	for i, journey := range r.JourneyList {
+		if strings.TrimSpace(journey.Origin) == "" || strings.TrimSpace(journey.Destination) == "" {
+			return fmt.Errorf("journey %d requires origin and destination", i+1)
+		}
+		if strings.EqualFold(journey.Origin, journey.Destination) {
+			return fmt.Errorf("journey %d origin and destination must differ", i+1)
+		}
+		if _, err := time.Parse("2006-01-02", journey.DepartureDate); err != nil {
+			return fmt.Errorf("journey %d departure_date must be YYYY-MM-DD: %w", i+1, err)
+		}
+	}
+	if r.Direction == DirectionRT {
+		outbound, inbound := r.JourneyList[0], r.JourneyList[1]
+		if !strings.EqualFold(outbound.Origin, inbound.Destination) ||
+			!strings.EqualFold(outbound.Destination, inbound.Origin) {
+			return fmt.Errorf("round-trip inbound journey must reverse outbound stations")
+		}
+		if inbound.DepartureDate < outbound.DepartureDate {
+			return fmt.Errorf("return date cannot be before departure date")
+		}
+	}
+	return nil
+}
+
+type SearchResponse struct {
+	JSONRPC string       `json:"jsonrpc"`
+	Result  SearchResult `json:"result"`
+}
+
+type SearchResult struct {
+	panorama.BasicPanoramaResult
+	Response SearchData `json:"response"`
+}
+
+type SearchData struct {
+	Schedules []Schedule `json:"schedules"`
+}
+
+type Schedule struct {
+	JourneyList SearchJourney `json:"journey_list"`
+	Journeys    []Journey     `json:"journeys"`
+}
+
+type Journey struct {
+	JourneyCode     string `json:"journey_code"`
+	Origin          string `json:"origin"`
+	DepartureDate   string `json:"departure_date"`
+	Destination     string `json:"destination"`
+	ArrivalDate     string `json:"arrival_date"`
+	ElapsedTime     string `json:"elapsed_time"`
+	Provider        string `json:"provider"`
+	Sequence        int    `json:"sequence"`
+	CabinClass      string `json:"cabin_class"`
+	ClassOfService  string `json:"class_of_service"`
+	AvailableCount  int    `json:"available_count"`
+	CarrierCode     string `json:"carrier_code"`
+	CarrierName     string `json:"carrier_name"`
+	CarrierNumber   string `json:"carrier_number"`
+	Fares           []Fare `json:"fares"`
+}
+
+type Fare struct {
+	FareCode             string                 `json:"fare_code"`
+	ServiceChargeSummary []ServiceChargeSummary `json:"service_charge_summary"`
+}
+
+type ServiceChargeSummary struct {
+	ServiceCharges  []ServiceCharge `json:"service_charges"`
+	PaxType         string          `json:"pax_type"`
+	PaxCount        int             `json:"pax_count"`
+	BaseFare        float64         `json:"base_fare"`
+	BaseTax         float64         `json:"base_tax"`
+	BaseNTA         float64         `json:"base_nta"`
+	BasePrice       float64         `json:"base_price"`
+	BaseCommission  float64         `json:"base_commission"`
+	TotalFare       float64         `json:"total_fare"`
+	TotalTax        float64         `json:"total_tax"`
+	TotalNTA        float64         `json:"total_nta"`
+	TotalPrice      float64         `json:"total_price"`
+	TotalCommission float64         `json:"total_commission"`
+	TotalRAC        float64         `json:"total_rac"`
+}
+
+type ServiceCharge struct {
+	ChargeCode      string  `json:"charge_code"`
+	ChargeType      string  `json:"charge_type"`
+	Currency        string  `json:"currency"`
+	PaxType         string  `json:"pax_type"`
+	PaxCount        int     `json:"pax_count"`
+	Amount          float64 `json:"amount"`
+	ForeignCurrency string  `json:"foreign_currency"`
+	ForeignAmount   float64 `json:"foreign_amount"`
+	Total           float64 `json:"total"`
+	Sequence        int     `json:"sequence"`
+}
