@@ -8,11 +8,11 @@ import (
 // CommitBookingRequest matches the Orbis train commit_booking payload.
 // A commit creates a provider booking; it does not issue tickets.
 type CommitBookingRequest struct {
-	Contacts    []BookingContact    `json:"contacts"`
-	Passengers  []BookingPassenger  `json:"passengers"`
-	Schedules   []BookingSchedule   `json:"schedules"`
-	Booker      BookingBooker       `json:"booker"`
-	ForceIssued bool                `json:"force_issued"`
+	Contacts    []BookingContact   `json:"contacts"`
+	Passengers  []BookingPassenger `json:"passengers"`
+	Schedules   []BookingSchedule  `json:"schedules"`
+	Booker      BookingBooker      `json:"booker"`
+	ForceIssued bool               `json:"force_issued"`
 }
 
 type BookingBooker struct {
@@ -125,16 +125,16 @@ type CommitBookingResult struct {
 }
 
 type CommitBookingData struct {
-	OrderNumber      string                    `json:"order_number"`
-	PNR              string                    `json:"pnr"`
-	State            string                    `json:"state"`
-	StateDescription string                    `json:"state_description"`
-	HoldDate         string                    `json:"hold_date"`
-	Direction        string                    `json:"direction"`
-	Origin           string                    `json:"origin"`
-	Destination      string                    `json:"destination"`
-	DepartureDate    string                    `json:"departure_date"`
-	ArrivalDate      string                    `json:"arrival_date"`
+	OrderNumber      string                     `json:"order_number"`
+	PNR              string                     `json:"pnr"`
+	State            string                     `json:"state"`
+	StateDescription string                     `json:"state_description"`
+	HoldDate         string                     `json:"hold_date"`
+	Direction        string                     `json:"direction"`
+	Origin           string                     `json:"origin"`
+	Destination      string                     `json:"destination"`
+	DepartureDate    string                     `json:"departure_date"`
+	ArrivalDate      string                     `json:"arrival_date"`
 	ProviderBookings []CommittedProviderBooking `json:"provider_bookings"`
 }
 
@@ -156,20 +156,20 @@ type CommittedProviderBooking struct {
 }
 
 type CommittedJourney struct {
-	Sequence      int             `json:"sequence"`
-	Origin        string          `json:"origin"`
-	Destination   string          `json:"destination"`
-	DepartureDate string          `json:"departure_date"`
-	ArrivalDate   string          `json:"arrival_date"`
-	PNR           string          `json:"pnr"`
-	CarrierCode   string          `json:"carrier_code"`
-	CarrierNumber string          `json:"carrier_number"`
-	CarrierName   string          `json:"carrier_name"`
-	JourneyCode   string          `json:"journey_code"`
-	FareCode      string          `json:"fare_code"`
-	Seats         []CommittedSeat `json:"seats"`
-	CabinClass    string          `json:"cabin_class"`
-	ClassOfService string         `json:"class_of_service"`
+	Sequence       int             `json:"sequence"`
+	Origin         string          `json:"origin"`
+	Destination    string          `json:"destination"`
+	DepartureDate  string          `json:"departure_date"`
+	ArrivalDate    string          `json:"arrival_date"`
+	PNR            string          `json:"pnr"`
+	CarrierCode    string          `json:"carrier_code"`
+	CarrierNumber  string          `json:"carrier_number"`
+	CarrierName    string          `json:"carrier_name"`
+	JourneyCode    string          `json:"journey_code"`
+	FareCode       string          `json:"fare_code"`
+	Seats          []CommittedSeat `json:"seats"`
+	CabinClass     string          `json:"cabin_class"`
+	ClassOfService string          `json:"class_of_service"`
 }
 
 type CommittedSeat struct {

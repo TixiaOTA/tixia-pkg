@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	sessionPath      = "/session"
-	bookingTrainPath = "/booking/train"
-	signInTimeout    = 30 * time.Second
-	searchTimeout    = 120 * time.Second
+	sessionPath             = "/session"
+	bookingTrainPath        = "/booking/train"
+	signInTimeout           = 30 * time.Second
+	searchTimeout           = 120 * time.Second
 	seatAvailabilityTimeout = 30 * time.Second
-	commitBookingTimeout = 30 * time.Second
+	commitBookingTimeout    = 30 * time.Second
 )
 
 type Config struct {
