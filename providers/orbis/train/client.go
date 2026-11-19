@@ -29,6 +29,8 @@ type Client interface {
 	Search(ctx context.Context, request SearchRequest) (*SearchResponse, *ProviderError)
 	GetSeatAvailability(ctx context.Context, signature string, request GetSeatAvailabilityRequest) (*GetSeatAvailabilityResponse, *ProviderError)
 	CommitBooking(ctx context.Context, signature string, request CommitBookingRequest) (*CommitBookingResponse, *ProviderError)
+	AssignSeats(ctx context.Context, request AssignSeatsRequest) (*AssignSeatsResponse, *ProviderError)
+	GetBooking(ctx context.Context, request GetBookingRequest) (*GetBookingResponse, *ProviderError)
 }
 
 type clientImpl struct {
