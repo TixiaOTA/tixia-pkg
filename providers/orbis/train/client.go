@@ -31,6 +31,8 @@ type Client interface {
 	CommitBooking(ctx context.Context, signature string, request CommitBookingRequest) (*CommitBookingResponse, *ProviderError)
 	AssignSeats(ctx context.Context, request AssignSeatsRequest) (*AssignSeatsResponse, *ProviderError)
 	GetBooking(ctx context.Context, request GetBookingRequest) (*GetBookingResponse, *ProviderError)
+	IssueBooking(ctx context.Context, request IssueBookingRequest) (*IssueBookingResponse, *ProviderError)
+	CancelBooking(ctx context.Context, request CancelBookingRequest) (*CancelBookingResponse, *ProviderError)
 }
 
 type clientImpl struct {
