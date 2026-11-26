@@ -36,6 +36,10 @@ const (
 	getSeatAvailabilityTimeout = 30 * time.Second
 	sellSSRsTimeout            = 30 * time.Second
 	assignSeatsTimeout         = 30 * time.Second
+
+	preRefundLoginListTimeout  = 30 * time.Second
+	getRefundBookingTimeout    = 30 * time.Second
+	cancelRefundBookingTimeout = 30 * time.Second
 )
 
 // SignIn signs in to the Panorama API
@@ -722,6 +726,126 @@ func (c *Client) AssignSeats(ctx context.Context, req AssignSeatsRequest) (*Assi
 	}
 
 	var resp AssignSeatsResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// PreRefundLoginList requests the refund captcha challenge(s) for the provider
+// bookings of an order, ahead of a refund quote request
+func (c *Client) PreRefundLoginList(ctx context.Context, req PreRefundLoginListRequest, options ...RequestOption) (*PreRefundLoginListResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "PreRefundLoginList")
+	defer span.End()
+
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting PreRefundLoginList request", zap.Any("request", sanitizedReq))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	headers := map[string]string{
+		"Action":    string(PreRefundLoginList),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(preRefundLoginListTimeout, options...))
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp PreRefundLoginListResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// GetRefundBooking requests the refund quote for an issued order. The captcha
+// map answers the challenge(s) returned by PreRefundLoginList, keyed by
+// provider booking PNR; callers own its contents
+func (c *Client) GetRefundBooking(ctx context.Context, req GetRefundBookingRequest, options ...RequestOption) (*GetRefundBookingResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "GetRefundBooking")
+	defer span.End()
+
+	sanitizedReq, _ := logger.Sanitize(req)
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting GetRefundBooking request", zap.Any("request", sanitizedReq))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	headers := map[string]string{
+		"Action":    string(GetRefundBooking),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(getRefundBookingTimeout, options...))
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp GetRefundBookingResponse
+	if err := parseResponseBody(bodyBytes, &resp); err != nil {
+		if _, ok := err.(*PanoramaError); ok {
+			return nil, err.(*PanoramaError)
+		}
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	return &resp, nil
+}
+
+// CancelRefundBooking executes the refund for an issued order with the given
+// provider bookings
+func (c *Client) CancelRefundBooking(ctx context.Context, req CancelRefundBookingRequest, options ...RequestOption) (*CancelRefundBookingResponse, *PanoramaError) {
+	ctx, span, currentSpanId := otelpkg.StartSpanWithID(ctx, "provider", "panorama", "CancelRefundBooking")
+	defer span.End()
+
+	c.logger.WithTrace(ctx, currentSpanId).Info("Starting CancelRefundBooking request", zap.Any("request", req))
+
+	if err := req.Validate(); err != nil {
+		return nil, buildPanoramaError(InvalidRequest, err.Error())
+	}
+
+	headers := map[string]string{
+		"Action":    string(Cancel),
+		"Signature": req.Signature,
+	}
+
+	httpResp, err := c.sendRequest(ctx, req, bookingAirlinePath, &headers, buildRequestOptions(cancelRefundBookingTimeout, options...))
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+	defer httpResp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, buildPanoramaError(InternalServerError, err.Error())
+	}
+
+	var resp CancelRefundBookingResponse
 	if err := parseResponseBody(bodyBytes, &resp); err != nil {
 		if _, ok := err.(*PanoramaError); ok {
 			return nil, err.(*PanoramaError)

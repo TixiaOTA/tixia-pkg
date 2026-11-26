@@ -28,6 +28,9 @@ const (
 	GetSeatAvailability PanoramaHeaderAction = "get_seat_availability"
 	SellSSRs            PanoramaHeaderAction = "sell_ssrs"
 	AssignSeats         PanoramaHeaderAction = "assign_seats"
+
+	PreRefundLoginList PanoramaHeaderAction = "pre_refund_login_list"
+	GetRefundBooking   PanoramaHeaderAction = "get_refund_booking"
 )
 
 // BookingFeeType constants for filtering passenger fees
