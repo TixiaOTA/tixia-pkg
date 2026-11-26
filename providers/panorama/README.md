@@ -11,6 +11,7 @@ A Go client library for interacting with the Panorama API, providing airline boo
 - **Price Itinerary**: Get pricing for a selected itinerary
 - **Sell Journeys**: Sell selected journeys with the same request shape as price itinerary
 - **Booking Cancellation**: Cancel bookings with "booked" status to "void" status
+- **Flight Refunds**: Quote refunds for issued bookings (pre-refund login captcha, refund quote) and execute the refund
 - **High-Level Usecase**: Convenient wrapper for complex operations like bulk booking cancellation
 - **Error Handling**: Comprehensive error handling with custom error types
 - **Observability**: Built-in OpenTelemetry tracing and structured logging
@@ -340,6 +341,50 @@ type CancelVoidRequest struct {
 }
 ```
 
+### Flight Refunds
+
+Refunds an **issued** booking in three steps: request the refund captcha challenges, request the refund quote, then execute the refund. Callers own the captcha answers — the client never fills them in.
+
+```go
+// Step 1: ask for the refund captcha challenge of each provider booking
+preRefundLogin, err := client.PreRefundLoginList(ctx, panorama.PreRefundLoginListRequest{
+    Signature:   signature,           // From SignIn response
+    OrderNumber: "PAN-ORDER-123",
+    Provider:    []string{"sia"},     // Optional filters
+    Pnr:         []string{"ABC123"},
+}, panorama.WithTimeout(30*time.Second))
+if err != nil {
+    log.Fatalf("pre refund login list failed: %v", err)
+}
+
+// Step 2: answer the captcha (keyed by provider booking PNR) and request the quote
+quote, err := client.GetRefundBooking(ctx, panorama.GetRefundBookingRequest{
+    Signature:        signature,
+    OrderNumber:      "PAN-ORDER-123",
+    Passengers:       []panorama.RefundPassengerNumber{{PassengerNumber: 1}},
+    ProviderBookings: []panorama.RefundProviderBooking{{Pnr: "ABC123", Journeys: []panorama.RefundJourney{{Origin: "CGK", Destination: "DPS", DepartureDate: "2026-10-01", Pax: []int{1}}}}},
+    Captcha:          map[string]string{"ABC123": "Refund"}, // Caller-controlled captcha answers
+}, panorama.WithTimeout(30*time.Second))
+if err != nil {
+    log.Fatalf("refund quote failed: %v", err)
+}
+
+for _, pb := range quote.Result.Response.ProviderBookings {
+    fmt.Printf("PNR %s refundable: %v\n", pb.Pnr, pb.RefundableAmount)
+}
+
+// Step 3: execute the refund
+cancelRefund, err := client.CancelRefundBooking(ctx, panorama.CancelRefundBookingRequest{
+    Signature:        signature,
+    OrderNumber:      "PAN-ORDER-123",
+    ProviderBookings: []panorama.RefundProviderBooking{{Pnr: "ABC123", Journeys: []panorama.RefundJourney{{Origin: "CGK", Destination: "DPS", DepartureDate: "2026-10-01", Pax: []int{1}}}}},
+}, panorama.WithTimeout(30*time.Second))
+if err != nil {
+    log.Fatalf("refund execution failed: %v", err)
+}
+fmt.Printf("Refunded order: %s\n", cancelRefund.Result.Response.OrderNumber)
+```
+
 ## High-Level Usecase
 
 The package provides a `Usecase` wrapper for complex operations that combine multiple API calls:
@@ -539,6 +584,65 @@ func (c *Client) CancelVoid(ctx context.Context, req CancelVoidRequest) (*GetBoo
 **Response:** Returns the updated booking details after cancellation.
 
 **Timeout:** 10 seconds
+
+#### PreRefundLoginList
+
+Requests the refund captcha challenge(s) for the provider bookings of an order, ahead of a refund quote.
+
+```go
+func (c *Client) PreRefundLoginList(ctx context.Context, req PreRefundLoginListRequest, options ...RequestOption) (*PreRefundLoginListResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `OrderNumber` (string, required): Booking order number to refund
+- `Provider` ([]string, optional): Provider codes to filter by
+- `Pnr` ([]string, optional): Provider booking PNRs to filter by
+
+**Response:** Returns one `PreRefundLogin` per challenge with the provider booking `Pnr` and the captcha `Img` (base64 image) to answer in `GetRefundBookingRequest.Captcha`.
+
+**Timeout:** 30 seconds (overridable with `WithTimeout`)
+
+#### GetRefundBooking
+
+Requests the refund quote for an issued order.
+
+```go
+func (c *Client) GetRefundBooking(ctx context.Context, req GetRefundBookingRequest, options ...RequestOption) (*GetRefundBookingResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `OrderNumber` (string, required): Booking order number to quote
+- `Passengers` ([]RefundPassengerNumber, required): Passenger numbers taking part in the refund
+- `ProviderBookings` ([]RefundProviderBooking, required): Provider bookings (PNR + journeys) to quote
+- `Captcha` (map[string]string, required): Captcha answers keyed by provider booking PNR; caller-controlled, the client does not fill it in
+
+**Response:** Returns the order summary and, per provider booking, the quote fields `total_price_cost`, `penalty_amount`, `refundable_amount`, `admin_fee`, and `resv_total_price` as `FlexibleNumber` (number or decimal-string tokens).
+
+**Timeout:** 30 seconds (overridable with `WithTimeout`)
+
+#### CancelRefundBooking
+
+Executes the refund for an issued order with the given provider bookings.
+
+```go
+func (c *Client) CancelRefundBooking(ctx context.Context, req CancelRefundBookingRequest, options ...RequestOption) (*CancelRefundBookingResponse, *PanoramaError)
+```
+
+**Request Parameters:**
+
+- `Signature` (string, required): Authentication signature from SignIn
+- `OrderNumber` (string, required): Booking order number to refund
+- `ProviderBookings` ([]RefundProviderBooking, required): Provider bookings (PNR + journeys) to refund
+
+**Response:** Returns the refunded order number.
+
+**Timeout:** 30 seconds (overridable with `WithTimeout`)
+
+**Special Notes:** Uses the same provider `cancel` action as `CancelVoid` but carries the refund `provider_bookings` payload; it targets issued bookings (void-after-issue), while `CancelVoid` only covers `booked → void`.
 
 ### Usecase Methods
 
